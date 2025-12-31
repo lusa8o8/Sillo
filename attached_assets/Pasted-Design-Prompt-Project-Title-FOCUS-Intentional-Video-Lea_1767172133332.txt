@@ -1,0 +1,42 @@
+Design Prompt
+Project Title: FOCUS – Intentional Video Learning Interface
+
+Aesthetic Direction: Modern, ultra-minimalist, and premium. Design should follow a "Dark Mode" aesthetic using a palette of Deep Obsidian (#0B0B0B), Soft Slate Grays, and a single accent color like "Electric Cobalt" or "Emerald Mint" for progress indicators. Use high-quality typography (Inter, SF Pro, or Geist Sans). Avoid all clutter; every pixel must serve a functional purpose.
+
+Screen 1: The Library (Dashboard)
+
+Header: Minimalist. Left-aligned "FOCUS" logo in bold sans-serif. Right-aligned thin-line icons for "Add Vault" (+) and "Profile."
+
+Active Focus Cards: Large, slightly rounded rectangles (16px radius) with a subtle 1px border.
+
+Top: Category Title (e.g., Advanced Python).
+
+Middle: A sleek, thin progress bar.
+
+Bottom: Meta-data in small, muted gray text (e.g., 70% Complete • 3/10 Lessons).
+
+Whitelisted Channels: A row of circular avatars with a subtle outer ring indicating "New Content." Labeled with the channel name in tiny, medium-weight text below.
+
+The Intent Search: A centered, wide search bar with a "glassmorphism" effect (blurred background). Placeholder text: "Enter a specific learning query..."
+
+Screen 2: The Zen Player
+
+Header: A simple "Back" chevron and the Title of the current course.
+
+Player: A 16:9 cinematic video container with no branding or overlay.
+
+Notes Section: A clean, card-based area below the video. Bullet points should use the accent color for icons. High line-height for readability.
+
+Footer Status: A persistent, thin bar at the bottom. Left side: "SESSION TIMER: 12:45" (Monospace font). Right side: "PROGRESS: 4/12."
+
+Interaction: No sidebar, no recommendations, no comments. The background should be pure black (#000000) to make the video content pop.
+
+General UI Requirements:
+
+Use 8px grid spacing.
+
+Use subtle drop shadows or "inner glows" on cards to create depth without using heavy colors.
+
+The "Feel" should be "Executive Productivity Tool" (like Linear or Notion), not "Social Media."
+
+Tips for Figma 
