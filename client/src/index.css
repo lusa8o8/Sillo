@@ -9,50 +9,55 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   
-  /* Deep Obsidian Palette */
-  --color-background: hsl(0 0% 4%); /* #0B0B0B */
-  --color-foreground: hsl(0 0% 90%);
+  /* Sillo Theme: Premium Slate (Softened "Deep Work") */
+  /* Background: Deep, rich charcoal blue instead of void black */
+  --color-background: hsl(222 47% 6%); /* #080C14 */
+  --color-foreground: hsl(215 20% 85%); /* #D6DEE7 - crisp but not harsh white */
   
-  --color-card: hsl(0 0% 7%);
-  --color-card-foreground: hsl(0 0% 90%);
+  /* Cards: Slightly lighter, distinct form background */
+  --color-card: hsl(222 47% 8%); 
+  --color-card-foreground: hsl(215 20% 85%);
   
-  --color-popover: hsl(0 0% 7%);
-  --color-popover-foreground: hsl(0 0% 90%);
+  --color-popover: hsl(222 47% 8%);
+  --color-popover-foreground: hsl(215 20% 85%);
   
-  --color-primary: hsl(224 100% 58%); /* Electric Cobalt */
+  /* Primary: "Electric Mint" -> "Serene Teal" (More professional, less "hacker") */
+  /* Keeping Mint heritage but refining it */
+  --color-primary: hsl(160 84% 39%); /* #10B981 - Emerald 500 equivalent, solid & trustworthy */
   --color-primary-foreground: hsl(0 0% 100%);
   
-  --color-secondary: hsl(0 0% 15%);
-  --color-secondary-foreground: hsl(0 0% 90%);
+  --color-secondary: hsl(217 33% 12%); /* Muted Navy for secondary inputs */
+  --color-secondary-foreground: hsl(210 40% 98%);
   
-  --color-muted: hsl(0 0% 15%);
-  --color-muted-foreground: hsl(0 0% 60%);
+  --color-muted: hsl(217 33% 12%);
+  --color-muted-foreground: hsl(215 16% 57%); /* Readable gray */
   
-  --color-accent: hsl(224 100% 58%);
+  --color-accent: hsl(160 84% 39%);
   --color-accent-foreground: hsl(0 0% 100%);
   
   --color-destructive: hsl(0 62% 30%);
-  --color-destructive-foreground: hsl(0 0% 90%);
+  --color-destructive-foreground: hsl(210 40% 98%);
   
-  --color-border: hsl(0 0% 15%);
-  --color-input: hsl(0 0% 15%);
-  --color-ring: hsl(224 100% 58%);
+  /* Borders: Visible but subtle */
+  --color-border: hsl(217 33% 15%); /* accessible contrast against bg */
+  --color-input: hsl(217 33% 15%);
+  --color-ring: hsl(160 84% 39%);
   
-  --color-sidebar: hsl(0 0% 5%);
-  --color-sidebar-foreground: hsl(0 0% 90%);
-  --color-sidebar-primary: hsl(224 100% 58%);
+  --color-sidebar: hsl(222 47% 5%);
+  --color-sidebar-foreground: hsl(215 20% 85%);
+  --color-sidebar-primary: hsl(160 84% 39%);
   --color-sidebar-primary-foreground: hsl(0 0% 100%);
-  --color-sidebar-accent: hsl(0 0% 12%);
-  --color-sidebar-accent-foreground: hsl(0 0% 90%);
-  --color-sidebar-border: hsl(0 0% 12%);
-  --color-sidebar-ring: hsl(224 100% 58%);
+  --color-sidebar-accent: hsl(217 33% 10%);
+  --color-sidebar-accent-foreground: hsl(215 20% 85%);
+  --color-sidebar-border: hsl(217 33% 15%);
+  --color-sidebar-ring: hsl(160 84% 39%);
 
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --radius: 0.5rem;
+  --radius: 0.25rem;
   
-  /* Shadows for depth */
-  --shadow-glow: 0 0 20px -5px hsl(224 100% 58% / 0.15);
+  /* Shadows with Mint Green hint */
+  --shadow-glow: 0 0 20px -5px hsl(156 79% 54% / 0.1);
 }
 
 @layer base {
