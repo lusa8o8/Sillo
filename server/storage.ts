@@ -1,4 +1,4 @@
-import { users, vaults, notes, type User, type InsertUser, type Vault, type InsertVault, type Note, type InsertNote } from "@shared/schema";
+import { users, vaults, notes, type User, type InsertUser, type Vault, type InsertVault, type Note, type InsertNote } from "../shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -13,6 +13,7 @@ export interface IStorage {
   // Vaults
   getVaults(): Promise<Vault[]>;
   createVault(vault: InsertVault): Promise<Vault>;
+  deleteVault(id: string): Promise<void>;
 
   // Notes
   getNotes(vaultId: string): Promise<Note[]>;
@@ -40,21 +41,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVault(insertVault: InsertVault): Promise<Vault> {
-    // We need to provide defaults for server-side generated fields if they are not in InsertVault
-    // However, schema definition says they are default(), so db.insert should handle them if omitted?
-    // Drizzle insert with returning() gives back the full row.
-    // We just need to handle the specific fields.
     const [vault] = await db
       .insert(vaults)
       .values({
         ...insertVault,
         type: insertVault.type || "video",
-        addedAt: new Date().toISOString(), // Fallback if DB default not used, but schema has no default for this textual date? Schema said notNull.
+        addedAt: new Date().toISOString(),
         lastActive: new Date().toISOString(),
         progress: "0"
       })
       .returning();
     return vault;
+  }
+
+  async deleteVault(id: string): Promise<void> {
+    // Delete associated notes first
+    await db.delete(notes).where(eq(notes.vaultId, id));
+    // Then delete the vault
+    await db.delete(vaults).where(eq(vaults.id, id));
   }
 
   async getNotes(vaultId: string): Promise<Note[]> {

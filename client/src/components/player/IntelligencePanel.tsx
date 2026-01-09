@@ -67,15 +67,15 @@ export function IntelligencePanel({ videoTitle, className }: IntelligencePanelPr
                                     <ul className="space-y-3 text-sm text-muted-foreground leading-relaxed">
                                         <li className="flex gap-2">
                                             <span className="text-primary">•</span>
-                                            <span>This video covers the core concepts of <strong>{videoTitle || "this topic"}</strong> including advanced patterns.</span>
+                                            <span>This sequence covers the architectural patterns of <strong>{videoTitle || "this topic"}</strong>.</span>
                                         </li>
                                         <li className="flex gap-2">
                                             <span className="text-primary">•</span>
-                                            <span>Key performance metrics to watch are First Contentful Paint (FCP) and Time to Interactive.</span>
+                                            <span>Key focus areas involve performance optimization and system scalability.</span>
                                         </li>
                                         <li className="flex gap-2">
                                             <span className="text-primary">•</span>
-                                            <span>The instructor recommends using <code>Array.reduce()</code> for complex data transformations.</span>
+                                            <span>The instructor analyzes how specific design decisions impact long-term maintenance.</span>
                                         </li>
                                     </ul>
                                 </div>
@@ -83,7 +83,7 @@ export function IntelligencePanel({ videoTitle, className }: IntelligencePanelPr
                                 <div className="p-4 bg-muted/50 rounded-lg border border-white/5">
                                     <h4 className="text-xs font-mono text-primary mb-2 uppercase">Action Item</h4>
                                     <p className="text-sm text-muted-foreground">
-                                        Try refactoring your current <code>UserContext</code> to use the composition pattern demonstrated at 14:20.
+                                        Review the implementation strategy at 12:45 and consider its application to your current project architecture.
                                     </p>
                                 </div>
                             </div>
@@ -121,6 +121,6 @@ export function IntelligencePanel({ videoTitle, className }: IntelligencePanelPr
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

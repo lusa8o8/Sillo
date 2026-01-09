@@ -49,7 +49,12 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        try {
+          const jsonStr = JSON.stringify(capturedJsonResponse);
+          logLine += ` :: ${jsonStr.length > 500 ? jsonStr.substring(0, 500) + "..." : jsonStr}`;
+        } catch (e) {
+          logLine += ` :: [Circular or large JSON]`;
+        }
       }
 
       log(logLine);
@@ -60,37 +65,56 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  try {
+    console.log("DEBUG: DATABASE_URL starts with:", process.env.DATABASE_URL?.substring(0, 20));
+    console.log("DEBUG: PGPORT:", process.env.PGPORT);
+    await registerRoutes(httpServer, app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
-  });
+      if (status >= 500) {
+        console.error("Server Error:", err);
+      }
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV !== "production") {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
-  }
+      res.status(status).json({ message });
+    });
 
-  // Only start listening if strict mode (dev) or if running as standalone server
-  // For Firebase Functions, we don't listen on port manually
-  if (process.env.NODE_ENV !== "production" || require.main === module) {
-    const port = parseInt(process.env.PORT || "5000", 10);
-    httpServer.listen(
-      {
-        port,
-        host: "0.0.0.0",
-        reusePort: true,
-      },
-      () => {
-        log(`serving on port ${port}`);
-      },
-    );
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (process.env.NODE_ENV !== "production") {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    }
+
+    // Only start listening if strict mode (dev) or if running as standalone server
+    // For Firebase Functions, we don't listen on port manually
+    if (process.env.NODE_ENV !== "production" || require.main === module) {
+      const port = parseInt(process.env.PORT || "5005", 10);
+
+      httpServer.on('error', (e: any) => {
+        if (e.code === 'EADDRINUSE') {
+          console.error(`Port ${port} is already in use. Please kill the process using it.`);
+        } else {
+          console.error('Server error:', e);
+        }
+        process.exit(1);
+      });
+
+      httpServer.listen(
+        {
+          port,
+          host: "localhost",
+        },
+        () => {
+          log(`serving on port ${port}`);
+        },
+      );
+    }
+  } catch (err) {
+    console.error("Critical server initialization error:", err);
+    process.exit(1);
   }
 })();

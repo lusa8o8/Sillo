@@ -17,7 +17,7 @@ export default function Player() {
 
   // Find the vault title
   const currentVault = vaults.find(v => v.url.includes(videoId));
-  const videoTitle = currentVault?.title || "Unknown Video";
+  const videoTitle = currentVault?.title || videoId;
   const videoCategory = "Vault";
 
   // -- Player Ref --
