@@ -181,29 +181,31 @@ export default function Player() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-foreground flex flex-col font-sans selection:bg-primary/20">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20">
 
       {/* Header */}
-      <header className="h-16 flex items-center px-6 border-b border-white/5 z-20 bg-black/50 backdrop-blur-sm fixed top-0 w-full">
+      <header className="h-16 flex items-center px-6 border-b border-white/5 z-20 bg-background/80 backdrop-blur-md fixed top-0 w-full transition-all">
         <Link href="/">
-          <button className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors group">
+          <button className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group px-3 py-1.5 rounded-lg hover:bg-muted/50">
             <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm font-medium">Back to Library</span>
           </button>
         </Link>
-        <div className="mx-auto absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-wide text-white/80 line-clamp-1 max-w-[50%]">
-          {videoCategory} / {videoTitle}
+        <div className="mx-auto absolute left-1/2 -translate-x-1/2 text-sm font-medium tracking-wide text-foreground/90 line-clamp-1 max-w-[50%] flex items-center gap-2">
+          <span className="text-muted-foreground/50 font-normal">{videoCategory}</span>
+          <span className="text-muted-foreground/30">/</span>
+          <span>{videoTitle}</span>
         </div>
       </header>
 
       {/* Main Player Area */}
-      <main className="flex-1 flex flex-col pt-16 pb-12">
-        <div className="w-full max-w-[1600px] mx-auto p-6 md:p-12 flex-1 flex flex-col gap-8">
+      <main className="flex-1 flex flex-col pt-20 pb-16">
+        <div className="w-full max-w-[1600px] mx-auto p-6 md:p-8 flex-1 flex flex-col gap-8">
 
           {/* Player Modes Container */}
           <div className={cn(
             "flex gap-6 transition-all duration-500 ease-in-out",
-            isFullscreen ? "fixed inset-0 z-50 bg-black" : "w-full",
+            isFullscreen ? "fixed inset-0 z-50 bg-black p-0 m-0" : "w-full",
             playerMode === 'theater' && !isFullscreen ? "flex-col" : "flex-row"
           )}>
 
@@ -211,9 +213,9 @@ export default function Player() {
             <div
               ref={containerRef}
               className={cn(
-                "relative bg-black transition-all duration-500 border border-white/5",
-                isFullscreen ? "w-full h-full border-0" : "flex-1 rounded-xl overflow-hidden aspect-video shadow-2xl",
-                playerMode === 'theater' && !isFullscreen ? "w-full h-[70vh]" : ""
+                "relative bg-black transition-all duration-500 border border-border/50",
+                isFullscreen ? "w-full h-full border-0" : "flex-1 rounded-2xl overflow-hidden aspect-video shadow-2xl shadow-black/20",
+                playerMode === 'theater' && !isFullscreen ? "w-full h-[75vh]" : ""
               )}>
               <div className="absolute inset-0 w-full h-full pointer-events-auto">
                 <YouTube
@@ -226,33 +228,33 @@ export default function Player() {
                 />
               </div>
 
-              {/* Hover Controls (Simplified for Brevity in this View) */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-6 opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end justify-between z-10">
-                <div className="flex gap-4">
-                  <button onClick={togglePlay} className="p-2 bg-white text-black rounded-full hover:scale-105 transition-transform">
-                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              {/* Hover Controls */}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end justify-between z-10 pointer-events-none hover:pointer-events-auto">
+                <div className="flex gap-4 items-center">
+                  <button onClick={togglePlay} className="p-3 bg-white text-black rounded-full hover:scale-110 transition-transform shadow-lg shadow-white/20">
+                    {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
                   </button>
-                  <div className="text-white/80 text-xs font-mono mt-3">
-                    {formatVideoTime(playedSeconds)} / {formatVideoTime(totalDuration)}
+                  <div className="text-white/90 text-sm font-medium font-mono tracking-wide">
+                    {formatVideoTime(playedSeconds)} <span className="text-white/40">/</span> {formatVideoTime(totalDuration)}
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 backdrop-blur-md bg-black/30 p-1.5 rounded-lg border border-white/10">
                   <button
                     onClick={() => setPlayerMode('default')}
-                    className={cn("p-2 rounded hover:bg-white/10 text-white/50 hover:text-white", playerMode === 'default' && "text-primary bg-primary/10")}
+                    className={cn("p-2 rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors", playerMode === 'default' && "text-primary bg-primary/10")}
                     title="Default View"
                   >
                     <List className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setPlayerMode('theater')}
-                    className={cn("p-2 rounded hover:bg-white/10 text-white/50 hover:text-white", playerMode === 'theater' && "text-primary bg-primary/10")}
+                    className={cn("p-2 rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors", playerMode === 'theater' && "text-primary bg-primary/10")}
                     title="Theater Mode"
                   >
                     <Maximize2 className="w-4 h-4" />
                   </button>
-                  <button onClick={toggleFullscreen} className="p-2 rounded hover:bg-white/10 text-white/50 hover:text-white" title="Fullscreen">
+                  <button onClick={toggleFullscreen} className="p-2 rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors" title="Fullscreen">
                     <Maximize2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -261,8 +263,8 @@ export default function Player() {
 
             {/* SIDEBAR INTELLIGENCE (Hidden in Fullscreen) */}
             {(!isFullscreen && playerMode !== 'theater') && (
-              <div className="w-[380px] h-[aspect-video] flex-shrink-0 animate-in slide-in-from-right-4 duration-500">
-                <IntelligencePanel videoTitle={videoTitle} className="h-full rounded-xl border border-white/5 bg-black/50 overflow-hidden" />
+              <div className="w-[400px] flex-shrink-0 animate-in slide-in-from-right-4 duration-500">
+                <IntelligencePanel videoTitle={videoTitle} className="h-full rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-lg shadow-black/5" />
               </div>
             )}
           </div>
@@ -271,13 +273,9 @@ export default function Player() {
           {playerMode === 'theater' && !isFullscreen && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="lg:col-span-2">
-                {/* Notes would go here in theater mode if we duplicate logic, or just keep notes only in Default for now as per "AI Summary option on right side" request */}
-                <div className="h-[400px] border border-white/5 rounded-xl bg-black/20 overflow-hidden">
+                <div className="h-[500px] border border-border rounded-2xl bg-card/50 overflow-hidden shadow-sm">
                   <IntelligencePanel videoTitle={videoTitle} />
                 </div>
-              </div>
-              <div className="lg:col-span-1">
-                {/* Placeholder for standard notes list if needed here */}
               </div>
             </div>
           )}
@@ -286,34 +284,42 @@ export default function Player() {
           {/* Notes Section - Only visible if NOT fullscreen */}
           {!isFullscreen && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
-              <div className="lg:col-span-2 space-y-6">
-                <h2 className="text-xl font-light tracking-tight text-white/90">Session Notes</h2>
-                <div className="bg-card/30 border border-white/5 rounded-xl p-8 space-y-6 min-h-[300px] flex flex-col">
+              <div className="lg:col-span-2 space-y-4">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+                  Session Notes
+                  <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Private</span>
+                </h2>
+                <div className="bg-card border border-border rounded-2xl p-6 md:p-8 space-y-6 min-h-[300px] flex flex-col shadow-sm card-hover">
                   <ul className="space-y-4 flex-1">
                     {notes.length === 0 && (
-                      <li className="text-muted-foreground/50 text-sm italic">No notes yet. Start observing...</li>
+                      <li className="text-muted-foreground/50 text-sm italic flex flex-col items-center justify-center h-48 gap-4">
+                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                          <span className="text-2xl">✍️</span>
+                        </div>
+                        <span>No notes yet. Click below or capture thoughts as they come...</span>
+                      </li>
                     )}
                     {notes.map((note) => (
-                      <li key={note.id} className="flex items-start gap-4 group">
+                      <li key={note.id} className="flex items-start gap-4 group p-3 rounded-xl hover:bg-muted/50 transition-colors">
                         <button
                           onClick={() => jumpToNote(note.timestamp)}
-                          className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_hsl(156,79%,54%,0.6)] shrink-0 hover:scale-150 transition-transform cursor-pointer"
+                          className="mt-2 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50 shrink-0 hover:scale-150 transition-transform cursor-pointer"
                           title="Jump to timestamp"
                         />
                         <div className="flex-1">
-                          <div className="flex items-baseline justify-between">
+                          <div className="flex items-baseline justify-between mb-1.5">
                             <span
-                              className="text-xs font-mono text-primary/50 mb-1 block cursor-pointer hover:text-primary transition-colors"
+                              className="text-xs font-mono font-medium text-primary cursor-pointer hover:underline underline-offset-2"
                               onClick={() => jumpToNote(note.timestamp)}
                             >
                               {formatVideoTime(note.timestamp)}
                             </span>
-                            <button onClick={() => handleDeleteNote(note.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
-                              <Trash2 className="w-3 h-3" />
+                            <button onClick={() => handleDeleteNote(note.id)} className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md transition-all">
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                           <div
-                            className="text-muted-foreground leading-relaxed group-hover:text-foreground transition-colors outline-none cursor-text decoration-0 whitespace-pre-wrap"
+                            className="text-foreground/90 text-sm leading-relaxed outline-none cursor-text whitespace-pre-wrap selection:bg-primary/20"
                             contentEditable={true}
                             suppressContentEditableWarning={true}
                             onBlur={(e) => handleUpdateNote(note.id, e.currentTarget.textContent || "")}
@@ -326,17 +332,21 @@ export default function Player() {
                   </ul>
                   <button
                     onClick={handleAddNote}
-                    className="text-xs text-primary hover:text-white transition-colors font-medium mt-4 flex items-center gap-2"
+                    className="self-start text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded-lg transition-all flex items-center gap-2"
                   >
                     + Add Note at {formatVideoTime(playedSeconds)}
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <h2 className="text-xl font-light tracking-tight text-white/90">Lesson Plan</h2>
-                <div className="bg-card/10 rounded-lg p-6 border border-white/5 text-center text-muted-foreground text-sm">
-                  Waitlist for automated lesson plans...
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Lesson Plan</h2>
+                <div className="bg-muted/30 rounded-2xl p-8 border border-border border-dashed text-center text-muted-foreground text-sm h-[300px] flex flex-col items-center justify-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center opacity-50">
+                    <BookOpen className="w-6 h-6" />
+                  </div>
+                  <p>AI is generating a structured lesson plan...</p>
+                  <span className="text-xs px-2 py-1 bg-muted rounded text-muted-foreground/70">Waitlist Active</span>
                 </div>
               </div>
             </div>
@@ -346,24 +356,24 @@ export default function Player() {
       </main>
 
       {/* Persistent Footer Status */}
-      <footer className="h-12 bg-background border-t border-white/5 flex items-center justify-between px-6 md:px-12 fixed bottom-0 w-full z-20 text-xs text-muted-foreground">
+      <footer className="h-14 bg-background/80 backdrop-blur-xl border-t border-border flex items-center justify-between px-6 md:px-12 fixed bottom-0 w-full z-20 text-xs font-medium text-muted-foreground shadow-lg shadow-black/5">
         <div className="flex items-center gap-6">
           <button
             onClick={toggleTimer}
             className={cn(
-              "flex items-center gap-2 hover:text-primary transition-colors",
-              isTimerRunning ? "text-primary animate-pulse" : ""
+              "flex items-center gap-2.5 transition-colors px-3 py-1.5 rounded-lg hover:bg-muted",
+              isTimerRunning ? "text-primary bg-primary/5" : "hover:text-foreground"
             )}
           >
-            <Clock className="w-3.5 h-3.5" />
-            <span className="tracking-widest font-mono">DEEP WORK: {formatTime(timeLeft)}</span>
+            <Clock className={cn("w-4 h-4", isTimerRunning && "animate-pulse")} />
+            <span className="tracking-wide font-mono uppercase">Focus: {formatTime(timeLeft)}</span>
           </button>
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <List className="w-3.5 h-3.5" />
-            <span className="tracking-widest font-mono">NOTE COUNT: {notes.length}</span>
+          <div className="flex items-center gap-2.5 px-3 py-1.5">
+            <List className="w-4 h-4" />
+            <span className="tracking-wide font-mono uppercase">Notes: {notes.length}</span>
           </div>
         </div>
       </footer>

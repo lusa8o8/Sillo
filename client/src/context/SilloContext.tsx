@@ -4,8 +4,9 @@ import { VaultItem } from "@/lib/storage";
 
 interface SilloContextType {
     vaults: VaultItem[];
-    addVault: (url: string) => Promise<boolean>;
-    getNotes: (videoId: string) => any[]; // Temporary any[] to avoid strict type issues during transition
+    addVault: (url: string) => Promise<{ success: boolean; error?: string }>;
+    deleteVault: (id: string) => Promise<boolean>;
+    getNotes: (videoId: string) => any[];
     saveNote: (videoId: string, text: string, timestamp: number) => void;
     updateNote: (videoId: string, noteId: number, text: string) => void;
     deleteNote: (videoId: string, noteId: number) => void;
@@ -16,11 +17,8 @@ const SilloContext = createContext<SilloContextType | undefined>(undefined);
 export function SilloProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
 
-    // Toggle storage mode: 'api' or 'local'
-    // For Vercel Free Deployment, we can use 'api'!
     const STORAGE_MODE: string = 'api';
     const API_BASE = import.meta.env.VITE_API_URL || '';
-
 
     // Fetch Vaults
     const { data: vaults = [] } = useQuery<VaultItem[]>({
@@ -37,49 +35,73 @@ export function SilloProvider({ children }: { children: ReactNode }) {
 
     const addVaultMutation = useMutation({
         mutationFn: async (url: string) => {
-            // 1. Fetch Metadata first
-            let title = "New Learning Vault";
-            let thumbnail = "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&q=80";
-
-            try {
-                const metaRes = await fetch(`${API_BASE}/api/metadata`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                });
-                if (metaRes.ok) {
-                    const meta = await metaRes.json();
-                    if (meta.title) title = meta.title;
-                    if (meta.thumbnail) thumbnail = meta.thumbnail;
-                }
-            } catch (e) {
-                console.warn("Failed to sync title", e);
-            }
-
-            const newVault = {
-                id: crypto.randomUUID(), // Generate ID client-side for local
-                type: 'video',
-                title,
-                url,
-                thumbnail,
-                addedAt: new Date().toISOString(),
-                lastActive: new Date().toISOString(),
-                progress: 0
-            };
-
             if (STORAGE_MODE === 'local') {
+                // Local mode doesn't support the metadata fix easily here, 
+                // but we are focused on API mode.
+                const newVault = {
+                    id: crypto.randomUUID(),
+                    type: 'video',
+                    title: "New Learning Vault",
+                    url,
+                    thumbnail: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&q=80",
+                    addedAt: new Date().toISOString(),
+                    lastActive: new Date().toISOString(),
+                    progress: 0
+                };
                 const current = JSON.parse(localStorage.getItem('sillo-vaults') || '[]');
-                const updated = [newVault, ...current];
-                localStorage.setItem('sillo-vaults', JSON.stringify(updated));
+                localStorage.setItem('sillo-vaults', JSON.stringify([newVault, ...current]));
                 return newVault;
             }
+
+            // 1. Fetch Metadata first
+            const metaRes = await fetch(`${API_BASE}/api/metadata`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+
+            if (!metaRes.ok) {
+                const errData = await metaRes.json();
+                throw new Error(errData.error || "Failed to fetch video metadata. Please check the URL.");
+            }
+
+            const meta = await metaRes.json();
+
+            const newVault = {
+                type: 'video',
+                title: meta.title || "New Learning Vault",
+                url,
+                thumbnail: meta.thumbnail || "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&q=80",
+            };
 
             const res = await fetch(`${API_BASE}/api/vaults`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newVault)
             });
+
+            if (!res.ok) throw new Error("Failed to save vault to database.");
             return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['vaults'] });
+        }
+    });
+
+    const deleteVaultMutation = useMutation({
+        mutationFn: async (id: string) => {
+            if (STORAGE_MODE === 'local') {
+                const current = JSON.parse(localStorage.getItem('sillo-vaults') || '[]');
+                const filtered = current.filter((v: any) => v.id !== id);
+                localStorage.setItem('sillo-vaults', JSON.stringify(filtered));
+                return true;
+            }
+
+            const res = await fetch(`${API_BASE}/api/vaults/${id}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error("Failed to delete vault");
+            return true;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['vaults'] });
@@ -89,6 +111,16 @@ export function SilloProvider({ children }: { children: ReactNode }) {
     const addVault = async (url: string) => {
         try {
             await addVaultMutation.mutateAsync(url);
+            return { success: true };
+        } catch (e: any) {
+            console.error(e);
+            return { success: false, error: e.message };
+        }
+    };
+
+    const deleteVault = async (id: string) => {
+        try {
+            await deleteVaultMutation.mutateAsync(id);
             return true;
         } catch (e) {
             console.error(e);
@@ -115,6 +147,7 @@ export function SilloProvider({ children }: { children: ReactNode }) {
             value={{
                 vaults,
                 addVault,
+                deleteVault,
                 getNotes: (videoId) => {
                     if (STORAGE_MODE === 'local') return getLocalNotes(videoId);
                     return []; // API implementation pending for Player refactor
@@ -122,7 +155,6 @@ export function SilloProvider({ children }: { children: ReactNode }) {
                 saveNote: (videoId, text, timestamp) => {
                     if (STORAGE_MODE === 'local') {
                         saveLocalNote(videoId, text, timestamp);
-                        // Force update? In a real app we'd use Query for notes too.
                     }
                 },
                 updateNote: () => { },

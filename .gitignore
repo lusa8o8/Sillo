@@ -11,3 +11,9 @@ vite.config.ts.*
 !.env.example
 functions/.env
 functions/.env.*
+
+# Logs and Teamp files
+server_*.log
+server_*.txt
+test_*.ts
+test_import.ts
