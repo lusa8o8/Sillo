@@ -21,7 +21,7 @@ export async function registerRoutes(
         return apiError(res, "Failed to fetch metadata from provider", 422);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (data.error) {
         return apiError(res, data.error, 422);

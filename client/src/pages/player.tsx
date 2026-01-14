@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useRoute } from "wouter";
 import YouTube from "react-youtube";
-import { ChevronLeft, Maximize2, Volume2, SkipBack, Play, Pause, SkipForward, Clock, List, Trash2 } from "lucide-react";
+import { ChevronLeft, Maximize2, Volume2, SkipBack, Play, Pause, SkipForward, Clock, List, Trash2, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSillo } from "@/context/SilloContext";
 import { Note } from "@/lib/storage";
