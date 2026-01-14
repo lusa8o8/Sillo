@@ -3,10 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { apiResponse, apiError } from "./utils";
 
-export async function registerRoutes(
+export function registerRoutes(
   httpServer: Server,
   app: Express
-): Promise<Server> {
+): Server {
   // Metadata Fetcher
   app.post("/api/metadata", async (req, res) => {
     try {

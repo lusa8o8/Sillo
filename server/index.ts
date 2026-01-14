@@ -68,7 +68,8 @@ app.use((req, res, next) => {
   try {
     console.log("DEBUG: DATABASE_URL starts with:", process.env.DATABASE_URL?.substring(0, 20));
     console.log("DEBUG: PGPORT:", process.env.PGPORT);
-    await registerRoutes(httpServer, app);
+    // Register routes synchronously
+    registerRoutes(httpServer, app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;

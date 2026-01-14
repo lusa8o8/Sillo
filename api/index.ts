@@ -1,4 +1,5 @@
-import { app } from "../server/index";
+// @ts-ignore
+import { app } from "../dist/index.cjs";
 
 // Vercel Serverless Function Config
 export const config = {
