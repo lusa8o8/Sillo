@@ -6,10 +6,10 @@ interface SilloContextType {
     vaults: VaultItem[];
     addVault: (url: string) => Promise<{ success: boolean; error?: string }>;
     deleteVault: (id: string) => Promise<boolean>;
-    getNotes: (videoId: string) => any[];
-    saveNote: (videoId: string, text: string, timestamp: number) => void;
-    updateNote: (videoId: string, noteId: number, text: string) => void;
-    deleteNote: (videoId: string, noteId: number) => void;
+    deleteVault: (id: string) => Promise<boolean>;
+    saveNote: (vaultId: string, text: string, timestamp: number) => Promise<void>;
+    updateNote: (vaultId: string, noteId: number, text: string) => void;
+    deleteNote: (vaultId: string, noteId: number) => void;
 }
 
 const SilloContext = createContext<SilloContextType | undefined>(undefined);
@@ -67,9 +67,10 @@ export function SilloProvider({ children }: { children: ReactNode }) {
 
             const meta = await metaRes.json();
 
+            const isPlaylist = url.includes("list=");
             const newVault = {
-                type: 'video',
-                title: meta.title || "New Learning Vault",
+                type: isPlaylist ? 'playlist' : 'video',
+                title: meta.title || (isPlaylist ? "New Learning Playlist" : "New Learning Vault"),
                 url,
                 thumbnail: meta.thumbnail || "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&q=80",
             };
@@ -148,17 +149,33 @@ export function SilloProvider({ children }: { children: ReactNode }) {
                 vaults,
                 addVault,
                 deleteVault,
-                getNotes: (videoId) => {
-                    if (STORAGE_MODE === 'local') return getLocalNotes(videoId);
-                    return []; // API implementation pending for Player refactor
-                },
-                saveNote: (videoId, text, timestamp) => {
+                saveNote: async (videoId, text, timestamp) => {
                     if (STORAGE_MODE === 'local') {
                         saveLocalNote(videoId, text, timestamp);
+                        queryClient.invalidateQueries({ queryKey: ['notes', videoId] });
+                        return;
+                    }
+
+                    try {
+                        await fetch(`${API_BASE}/api/vaults/${videoId}/notes`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ text, timestamp: timestamp.toString() }),
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['notes', videoId] });
+                    } catch (e) {
+                        console.error("Failed to save note:", e);
                     }
                 },
-                updateNote: () => { },
-                deleteNote: () => { },
+                updateNote: async (videoId, noteId, text) => {
+                    // Note update endpoint not yet implemented on server, but can mock or add later
+                    if (STORAGE_MODE === 'local') {
+                        // ... local update logic ...
+                    }
+                },
+                deleteNote: async (videoId, noteId) => {
+                    // Note delete endpoint not yet implemented on server
+                },
             }}
         >
             {children}

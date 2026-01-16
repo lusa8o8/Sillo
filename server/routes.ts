@@ -18,13 +18,21 @@ export function registerRoutes(
 
       const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
       if (!response.ok) {
-        return apiError(res, "Failed to fetch metadata from provider", 422);
+        console.warn("Metadata fetch failed (provider error), using default.");
+        return apiResponse(res, {
+          title: "New Learning Vault",
+          thumbnail: ""
+        });
       }
 
       const data = await response.json() as any;
 
       if (data.error) {
-        return apiError(res, data.error, 422);
+        console.warn("Metadata fetch returned error, using default:", data.error);
+        return apiResponse(res, {
+          title: "New Learning Vault",
+          thumbnail: ""
+        });
       }
 
       apiResponse(res, {
@@ -33,7 +41,11 @@ export function registerRoutes(
       });
     } catch (error) {
       console.error("Metadata fetch error:", error);
-      apiError(res, "Internal server error during metadata fetch", 500);
+      // Fallback to default metadata instead of 500
+      apiResponse(res, {
+        title: "New Learning Vault",
+        thumbnail: ""
+      });
     }
   });
 
@@ -53,9 +65,9 @@ export function registerRoutes(
       const vaultData = { ...req.body, userId: "user-123" };
       const vault = await storage.createVault(vaultData);
       apiResponse(res, vault, 201);
-    } catch (error) {
-      console.error("Create vault error:", error);
-      apiError(res, "Failed to create vault");
+    } catch (error: any) {
+      console.error("Create vault error detailed:", error);
+      apiError(res, `Failed to create vault: ${error.message || "Unknown error"}`);
     }
   });
 
@@ -109,6 +121,44 @@ export function registerRoutes(
       apiError(res, "Failed to search YouTube");
     }
   });
+
+  // Get Playlist Items
+  app.get("/api/playlists/:id/items", async (req, res) => {
+    try {
+      const { getPlaylistItems } = await import("./services/youtube");
+      const items = await getPlaylistItems(req.params.id);
+      apiResponse(res, items);
+    } catch (error) {
+      console.error("Playlist items error:", error);
+      apiError(res, "Failed to fetch playlist items");
+    }
+  });
+
+  // AI Routes
+  app.post("/api/ai/summary", async (req, res) => {
+    try {
+      const { title, context } = req.body;
+      const { generateSummary } = await import("./services/ai");
+      const summary = await generateSummary(title, context);
+      apiResponse(res, summary);
+    } catch (error) {
+      console.error("AI Summary error:", error);
+      apiError(res, "Failed to generate summary");
+    }
+  });
+
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { message, context } = req.body;
+      const { generateChatResponse } = await import("./services/ai");
+      const response = await generateChatResponse(message, context);
+      apiResponse(res, { message: response });
+    } catch (error) {
+      console.error("AI Chat error:", error);
+      apiError(res, "Failed to generate chat response");
+    }
+  });
+
 
   return httpServer;
 }

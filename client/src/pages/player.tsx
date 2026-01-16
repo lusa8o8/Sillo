@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useRoute } from "wouter";
 import YouTube from "react-youtube";
-import { ChevronLeft, Maximize2, Volume2, SkipBack, Play, Pause, SkipForward, Clock, List, Trash2, BookOpen } from "lucide-react";
+import { ChevronLeft, Maximize2, Volume2, SkipBack, Play, Pause, SkipForward, Clock, List, Trash2, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSillo } from "@/context/SilloContext";
 import { Note } from "@/lib/storage";
+import { useNotes } from "@/hooks/useNotes";
+import { usePlaylistItems } from "@/hooks/usePlaylistItems";
 import { IntelligencePanel } from "@/components/player/IntelligencePanel";
 
 type PlayerMode = 'default' | 'theater';
@@ -13,7 +15,9 @@ export default function Player() {
   const [, params] = useRoute("/player/:id");
   // Default to a real ID if missing for testing. 
   const videoId = params?.id || "WjJUPxBa1ls";
-  const { getNotes, saveNote, updateNote, deleteNote, vaults } = useSillo();
+  const { saveNote, updateNote, deleteNote, vaults } = useSillo();
+
+  const notes = useNotes(vaults.find(v => v.url.includes(videoId))?.id);
 
   // Find the vault title
   const currentVault = vaults.find(v => v.url.includes(videoId));
@@ -53,11 +57,12 @@ export default function Player() {
   const [isReady, setIsReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playerMode, setPlayerMode] = useState<PlayerMode>('default');
+  const [isPlaylistVisible, setIsPlaylistVisible] = useState(true);
 
   const formatVideoTime = (seconds: number) => {
     if (!seconds) return "00:00";
     const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
+    const s = Math.floor(seconds % 60);
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
@@ -132,25 +137,21 @@ export default function Player() {
   };
 
   // -- Notes State --
-  const [notes, setNotes] = useState<Note[]>([]);
-
-  useEffect(() => {
-    setNotes(getNotes(videoId));
-  }, [videoId, getNotes]);
+  // managed by useQuery hook now
 
   const handleAddNote = () => {
-    saveNote(videoId, "New observation...", playedSeconds);
-    setNotes(getNotes(videoId));
+    if (!currentVault?.id) return;
+    saveNote(currentVault.id, "New observation...", playedSeconds);
   };
 
   const handleUpdateNote = (noteId: number, text: string) => {
-    updateNote(videoId, noteId, text);
-    setNotes(getNotes(videoId));
+    if (!currentVault?.id) return;
+    updateNote(currentVault.id, noteId, text);
   };
 
   const handleDeleteNote = (noteId: number) => {
-    deleteNote(videoId, noteId);
-    setNotes(getNotes(videoId));
+    if (!currentVault?.id) return;
+    deleteNote(currentVault.id, noteId);
   };
 
   // Jump to timestamp when clicking a note
@@ -165,7 +166,8 @@ export default function Player() {
   const skipForward = () => seekTo(playedSeconds + 10);
   const skipBack = () => seekTo(playedSeconds - 10);
 
-  const isPlaylist = videoId.startsWith("PL") || videoId.length > 11;
+  const isPlaylist = videoId.startsWith("PL") || videoId.length > 15;
+  const playlistItems = usePlaylistItems(isPlaylist ? videoId : undefined);
 
   const opts: any = {
     height: '100%',
@@ -204,9 +206,9 @@ export default function Player() {
 
           {/* Player Modes Container */}
           <div className={cn(
-            "flex gap-6 transition-all duration-500 ease-in-out",
+            "flex gap-6 transition-all duration-500 ease-in-out relative",
             isFullscreen ? "fixed inset-0 z-50 bg-black p-0 m-0" : "w-full",
-            playerMode === 'theater' && !isFullscreen ? "flex-col" : "flex-row"
+            playerMode === 'theater' && !isFullscreen ? "flex-col" : "flex-row pr-[424px]"
           )}>
 
             {/* VIDEO AREA */}
@@ -263,7 +265,7 @@ export default function Player() {
 
             {/* SIDEBAR INTELLIGENCE (Hidden in Fullscreen) */}
             {(!isFullscreen && playerMode !== 'theater') && (
-              <div className="w-[400px] flex-shrink-0 animate-in slide-in-from-right-4 duration-500">
+              <div className="w-[400px] flex-shrink-0 animate-in slide-in-from-right-4 duration-500 flex flex-col absolute right-0 top-0 bottom-0">
                 <IntelligencePanel videoTitle={videoTitle} className="h-full rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-lg shadow-black/5" />
               </div>
             )}
@@ -280,8 +282,7 @@ export default function Player() {
             </div>
           )}
 
-
-          {/* Notes Section - Only visible if NOT fullscreen */}
+          {/* Notes Section - Video Notes and Lesson Plan */}
           {!isFullscreen && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
               <div className="lg:col-span-2 space-y-4">
@@ -352,22 +353,94 @@ export default function Player() {
             </div>
           )}
 
+          {/* PLAYLIST SIDEBAR */}
+          {(!isFullscreen && isPlaylist && playlistItems.length > 0) && (
+            <div className="w-full space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Playlist Episodes</h3>
+                <button
+                  onClick={() => setIsPlaylistVisible(!isPlaylistVisible)}
+                  className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+                >
+                  {isPlaylistVisible ? (
+                    <>
+                      Hide <ChevronUp className="w-3 h-3" />
+                    </>
+                  ) : (
+                    <>
+                      Show <ChevronDown className="w-3 h-3" />
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {isPlaylistVisible && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {playlistItems.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        window.location.href = `/player/${item.id}`; // Simple navigation for now
+                      }}
+                      className={cn(
+                        "group flex flex-col gap-2 p-3 rounded-xl border border-border bg-card/30 hover:bg-muted/50 transition-all cursor-pointer h-full",
+                        item.id === videoId && "border-primary/50 bg-primary/5"
+                      )}
+                    >
+                      <div className="relative aspect-video rounded-lg overflow-hidden bg-black/50">
+                        <img src={item.thumbnail} alt={item.title} className="object-cover w-full h-full opacity-90 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-8 h-8 text-white fill-white drop-shadow-lg" />
+                        </div>
+                      </div>
+                      <div className="flex-1 flex flex-col">
+                        <h4 className={cn("text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors", item.id === videoId ? "text-primary" : "text-foreground")}>
+                          {item.id === videoId && <span className="mr-2 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded">PLAYING</span>}
+                          {item.title}
+                        </h4>
+                        <span className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.channelTitle}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </main>
 
       {/* Persistent Footer Status */}
       <footer className="h-14 bg-background/80 backdrop-blur-xl border-t border-border flex items-center justify-between px-6 md:px-12 fixed bottom-0 w-full z-20 text-xs font-medium text-muted-foreground shadow-lg shadow-black/5">
         <div className="flex items-center gap-6">
-          <button
-            onClick={toggleTimer}
-            className={cn(
-              "flex items-center gap-2.5 transition-colors px-3 py-1.5 rounded-lg hover:bg-muted",
-              isTimerRunning ? "text-primary bg-primary/5" : "hover:text-foreground"
-            )}
-          >
-            <Clock className={cn("w-4 h-4", isTimerRunning && "animate-pulse")} />
-            <span className="tracking-wide font-mono uppercase">Focus: {formatTime(timeLeft)}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTimer}
+              className={cn(
+                "flex items-center gap-2.5 transition-colors px-3 py-1.5 rounded-lg hover:bg-muted",
+                isTimerRunning ? "text-primary bg-primary/5" : "hover:text-foreground"
+              )}
+            >
+              <Clock className={cn("w-4 h-4", isTimerRunning && "animate-pulse")} />
+              <span className="tracking-wide font-mono uppercase">Focus: {formatTime(timeLeft)}</span>
+            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setTimeLeft(prev => Math.max(60, prev - 300))}
+                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                title="- 5 mins"
+              >
+                -
+              </button>
+              <button
+                onClick={() => setTimeLeft(prev => prev + 300)}
+                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                title="+ 5 mins"
+              >
+                +
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-6">

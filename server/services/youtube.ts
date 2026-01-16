@@ -41,30 +41,16 @@ const MOCK_RESULTS: YouTubeResult[] = [
 
 export async function searchYouTube(query: string, filters: { type?: string, duration?: string } = {}): Promise<YouTubeResult[]> {
     if (!process.env.YOUTUBE_API_KEY) {
-        console.log("[YouTube Service] No API Key, using MOCK data");
-        // Simulate network delay
-        await new Promise(r => setTimeout(r, 500));
-
-        let results = [...MOCK_RESULTS];
-
-        // Simple mock filtering
-        if (filters.type && filters.type !== 'all') {
-            results = results.filter(r => r.type === filters.type);
-        }
-
-        if (query.toLowerCase().includes("react")) {
-            results.push({
-                id: "SqcY0GlETPk",
-                type: "video",
-                title: "React Tutorial for Beginners",
-                channelTitle: "Programming with Mosh",
-                thumbnail: "https://i.ytimg.com/vi/SqcY0GlETPk/hqdefault.jpg",
-                description: "Master React in this crash course.",
-                publishedAt: "2021-01-01T00:00:00Z"
-            });
-        }
-
-        return results;
+        console.log("[YouTube Service] No API Key, returning instruction");
+        return [{
+            id: "instruction-placeholder",
+            type: "video",
+            title: "⚠️ Setup Required: Add YOUTUBE_API_KEY to .env",
+            channelTitle: "System",
+            thumbnail: "https://placehold.co/600x400/000000/FFF?text=Add+API+Key",
+            description: "To enable real YouTube search, you must obtain a generic YouTube Data API Key and add it to your .env file as YOUTUBE_API_KEY.",
+            publishedAt: new Date().toISOString()
+        }];
     }
 
     try {
@@ -90,6 +76,36 @@ export async function searchYouTube(query: string, filters: { type?: string, dur
         }));
     } catch (error) {
         console.error("YouTube Search Failed:", error);
+        return [];
+    }
+}
+
+export async function getPlaylistItems(playlistId: string): Promise<YouTubeResult[]> {
+    if (!process.env.YOUTUBE_API_KEY) return [];
+
+    try {
+        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50&key=${process.env.YOUTUBE_API_KEY}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            console.error(`YouTube Playlist Error: ${response.statusText}`);
+            return [];
+        }
+
+        const data = await response.json();
+
+        return data.items.map((item: any) => ({
+            id: item.snippet.resourceId.videoId,
+            type: 'video',
+            title: item.snippet.title,
+            thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
+            channelTitle: item.snippet.channelTitle,
+            description: item.snippet.description,
+            publishedAt: item.snippet.publishedAt
+        })).filter((item: any) => item.title !== "Private video"); // Filter out private videos
+
+    } catch (error) {
+        console.error("Failed to fetch playlist items:", error);
         return [];
     }
 }

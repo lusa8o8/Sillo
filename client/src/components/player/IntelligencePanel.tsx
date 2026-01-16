@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Sparkles, BookOpen, MessageSquare, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Sparkles, BookOpen, MessageSquare, Loader2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface IntelligencePanelProps {
@@ -7,15 +7,84 @@ interface IntelligencePanelProps {
     className?: string;
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 export function IntelligencePanel({ videoTitle, className }: IntelligencePanelProps) {
     const [activeTab, setActiveTab] = useState<"summary" | "chat">("summary");
     const [loading, setLoading] = useState(true);
+    const [summaryData, setSummaryData] = useState<any>(null);
 
-    // Mock AI Generation delay
+    // Chat State
+    const [messages, setMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
+        { role: 'ai', text: "Hello! I've analyzed this video. Ask me anything about the code examples or concepts shown." }
+    ]);
+    const [input, setInput] = useState("");
+    const [chatLoading, setChatLoading] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    // Fetch Summary
     useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 2500);
-        return () => clearTimeout(timer);
-    }, []);
+        if (!videoTitle) return;
+
+        const fetchSummary = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`${API_BASE}/api/ai/summary`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: videoTitle })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setSummaryData(data);
+                } else {
+                    throw new Error("Failed to fetch summary");
+                }
+            } catch (error) {
+                console.error(error);
+                // Fallback handled by backend or show simple error
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSummary();
+    }, [videoTitle]);
+
+    // Handle Chat Submit
+    const handleSend = async () => {
+        if (!input.trim() || chatLoading) return;
+
+        const userMsg = input.trim();
+        setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+        setInput("");
+        setChatLoading(true);
+
+        try {
+            const res = await fetch(`${API_BASE}/api/ai/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userMsg, context: videoTitle })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setMessages(prev => [...prev, { role: 'ai', text: data.message }]);
+            } else {
+                setMessages(prev => [...prev, { role: 'ai', text: "Sorry, I encountered an error." }]);
+            }
+        } catch (error) {
+            console.error(error);
+            setMessages(prev => [...prev, { role: 'ai', text: "Network error. Please try again." }]);
+        } finally {
+            setChatLoading(false);
+        }
+    };
+
+    // Scroll to bottom of chat
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     return (
         <div className={cn("flex flex-col h-full bg-card/40 border-l border-border", className)}>
@@ -50,83 +119,101 @@ export function IntelligencePanel({ videoTitle, className }: IntelligencePanelPr
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-6 bg-background/50">
-                {loading ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
-                            <Loader2 className="w-8 h-8 text-primary animate-spin relative z-10" />
+            <div className="flex-1 overflow-y-auto p-6 bg-background/50 relative">
+                {activeTab === "summary" ? (
+                    loading ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                                <Loader2 className="w-8 h-8 text-primary animate-spin relative z-10" />
+                            </div>
+                            <p className="text-sm font-medium text-muted-foreground animate-pulse">
+                                Analyzing video insight...
+                            </p>
                         </div>
-                        <p className="text-sm font-medium text-muted-foreground animate-pulse">
-                            Analyzing video insight...
-                        </p>
-                    </div>
-                ) : (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {activeTab === "summary" ? (
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4 text-primary" />
-                                        Key Takeaways
-                                    </h3>
-                                    <ul className="space-y-4 text-sm text-muted-foreground leading-relaxed">
-                                        <li className="flex gap-3">
+                    ) : (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div>
+                                <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-primary" />
+                                    Key Takeaways
+                                </h3>
+                                <ul className="space-y-4 text-sm text-muted-foreground leading-relaxed">
+                                    {summaryData?.keyTakeaways?.map((item: string, i: number) => (
+                                        <li key={i} className="flex gap-3">
                                             <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-sm shadow-primary/50" />
-                                            <span>This sequence covers the architectural patterns of <strong className="text-foreground">{videoTitle || "this topic"}</strong>.</span>
+                                            <span>{item}</span>
                                         </li>
-                                        <li className="flex gap-3">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-sm shadow-primary/50" />
-                                            <span>Key focus areas involve performance optimization and system scalability.</span>
-                                        </li>
-                                        <li className="flex gap-3">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-sm shadow-primary/50" />
-                                            <span>The instructor analyzes how specific design decisions impact long-term maintenance.</span>
-                                        </li>
-                                    </ul>
-                                </div>
+                                    ))}
+                                </ul>
+                            </div>
 
+                            {summaryData?.recommendedAction && (
                                 <div className="p-5 bg-card rounded-xl border border-border shadow-sm">
                                     <h4 className="text-xs font-bold text-primary mb-2 uppercase tracking-wide flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                                         Recommended Action
                                     </h4>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        Review the implementation strategy at <span className="text-foreground font-mono bg-muted px-1.5 py-0.5 rounded text-xs cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors">12:45</span> and consider its application to your current project architecture.
+                                        {summaryData.recommendedAction}
+                                        {summaryData.timestamp && (
+                                            <span className="ml-2 text-foreground font-mono bg-muted px-1.5 py-0.5 rounded text-xs">
+                                                at {summaryData.timestamp}
+                                            </span>
+                                        )}
                                     </p>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
+                            )}
+                        </div>
+                    )
+                ) : (
+                    <div className="flex flex-col h-full">
+                        <div className="flex-1 space-y-4 pb-4">
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={cn("flex gap-4", msg.role === 'user' ? "flex-row-reverse" : "flex-row")}>
+                                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border", msg.role === 'ai' ? "bg-primary/10 border-primary/20" : "bg-muted border-border")}>
+                                        {msg.role === 'ai' ? <Sparkles className="w-4 h-4 text-primary" /> : <span className="text-[10px] font-bold text-muted-foreground">YOU</span>}
+                                    </div>
+                                    <div className={cn("p-4 rounded-2xl text-sm shadow-sm", msg.role === 'ai' ? "bg-card border border-border rounded-tl-sm text-muted-foreground" : "bg-primary text-primary-foreground rounded-tr-sm shadow-md shadow-primary/20")}>
+                                        {msg.text}
+                                    </div>
+                                </div>
+                            ))}
+                            {chatLoading && (
                                 <div className="flex gap-4">
                                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
-                                        <Sparkles className="w-4 h-4 text-primary" />
+                                        <Loader2 className="w-4 h-4 text-primary animate-spin" />
                                     </div>
-                                    <div className="bg-card border border-border p-4 rounded-2xl rounded-tl-sm text-sm text-muted-foreground shadow-sm">
-                                        Hello! I've analyzed this video. Ask me anything about the code examples or concepts shown.
+                                    <div className="bg-card border border-border p-4 rounded-2xl rounded-tl-sm text-sm text-muted-foreground shadow-sm italic">
+                                        Thinking...
                                     </div>
                                 </div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
 
-                                {/* Mock User Message */}
-                                <div className="flex gap-4 flex-row-reverse">
-                                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 border border-border">
-                                        <span className="text-[10px] font-bold text-muted-foreground">YOU</span>
-                                    </div>
-                                    <div className="bg-primary text-primary-foreground p-4 rounded-2xl rounded-tr-sm text-sm shadow-md shadow-primary/20">
-                                        Explain the middleware part again?
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
-                                        <Sparkles className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <div className="bg-card border border-border p-4 rounded-2xl rounded-tl-sm text-sm text-muted-foreground shadow-sm">
-                                        Sure! At <strong className="text-foreground cursor-pointer hover:text-primary border-b border-dotted border-border hover:border-primary transition-colors">05:30</strong>, the speaker explains that middleware intercepts the request before it reaches your route handler. Think of it like a security guard checking ID before letting you into the club.
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {/* Input Area */}
+                        <div className="mt-auto pt-4 border-t border-border">
+                            <form
+                                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+                                className="flex gap-2"
+                            >
+                                <input
+                                    className="flex-1 bg-muted/30 border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                    placeholder="Ask about this topic..."
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    disabled={chatLoading}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!input.trim() || chatLoading}
+                                    className="p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                >
+                                    <Send className="w-4 h-4" />
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 )}
             </div>
