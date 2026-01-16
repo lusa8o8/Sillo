@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -64,12 +65,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// Register routes and static files synchronously for production
+// This ensures they are ready when Vercel's serverless function handler is called
+if (process.env.NODE_ENV === "production") {
+  registerRoutes(httpServer, app);
+  serveStatic(app);
+}
+
 (async () => {
   try {
-    console.log("DEBUG: DATABASE_URL starts with:", process.env.DATABASE_URL?.substring(0, 20));
-    console.log("DEBUG: PGPORT:", process.env.PGPORT);
-    // Register routes synchronously
-    registerRoutes(httpServer, app);
+    if (process.env.NODE_ENV !== "production") {
+      // Register routes first in dev
+      registerRoutes(httpServer, app);
+
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    }
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
@@ -82,16 +93,7 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
-    if (process.env.NODE_ENV !== "production") {
-      const { setupVite } = await import("./vite");
-      await setupVite(httpServer, app);
-    }
-
     // Only start listening if strict mode (dev) or if running as standalone server
-    // For Firebase Functions, we don't listen on port manually
     if (process.env.NODE_ENV !== "production" || require.main === module) {
       const port = parseInt(process.env.PORT || "5005", 10);
 
