@@ -10,12 +10,11 @@ import { metaImagesPlugin } from "./vite-plugin-meta-images";
 export default defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
+    process.env.NODE_ENV !== "production" && runtimeErrorOverlay(),
     tailwindcss(),
     metaImagesPlugin(),
     // Replit-specific plugins removed to avoid top-level await issues in local dev
-
-  ],
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),

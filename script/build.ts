@@ -35,8 +35,14 @@ const allowlist = [
 async function buildAll() {
   await rm("dist", { recursive: true, force: true });
 
-  console.log("building client...");
-  await viteBuild();
+  console.log("building client (Vite)...");
+  try {
+    await viteBuild();
+    console.log("client build success!");
+  } catch (error) {
+    console.error("client build failed!");
+    throw error;
+  }
 
   console.log("building server...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));

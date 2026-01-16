@@ -1,19 +1,20 @@
 {
     "version": 2,
     "buildCommand": "npm run build",
+    "complexity": 3,
     "functions": {
         "api/index.ts": {
             "includeFiles": "dist/public/**"
         }
     },
-    "routes": [
+    "rewrites": [
         {
-            "src": "/api/(.*)",
-            "dest": "/api"
+            "source": "/api/(.*)",
+            "destination": "/api"
         },
         {
-            "src": "/(.*)",
-            "dest": "/api"
+            "source": "/(.*)",
+            "destination": "/api"
         }
     ]
 }
