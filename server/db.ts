@@ -4,8 +4,9 @@ import * as schema from "../shared/schema";
 import "dotenv/config";
 
 if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is missing from environment variables.");
+    console.warn("DATABASE_URL is missing from environment variables. Database features will fail.");
 }
 
-const client = postgres(process.env.DATABASE_URL, { prepare: false });
+const dbUrl = process.env.DATABASE_URL || "postgres://localhost:5432/postgres";
+const client = postgres(dbUrl, { prepare: false });
 export const db = drizzle(client, { schema });

@@ -1,5 +1,7 @@
 import { app } from "./bundle.cjs";
 
+console.log("Vercel entry point loading...");
+
 // Vercel Serverless Function Config
 export const config = {
     api: {
@@ -9,17 +11,17 @@ export const config = {
 
 const logs: string[] = [];
 
-app.use((req, _res, next) => {
+app.use((req: any, _res: any, next: any) => {
     logs.push(`${new Date().toISOString()} - ${req.method} ${req.url}`);
     next();
 });
 
 // Vercel handles default exports of Express instances
-app.get("/api/vercel-entry-check", (_req, res) => {
+app.get("/api/vercel-entry-check", (_req: any, res: any) => {
     res.json({ status: "entry-point-ready", timestamp: new Date().toISOString(), logs });
 });
 
-app.get("/api/dump-logs", (_req, res) => {
+app.get("/api/dump-logs", (_req: any, res: any) => {
     res.json(logs);
 });
 
