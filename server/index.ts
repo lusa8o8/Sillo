@@ -7,6 +7,10 @@ import { createServer } from "http";
 export const app = express();
 const httpServer = createServer(app);
 
+app.get("/api/bundle-check", (_req, res) => {
+  res.json({ status: "bundle-ready", node_env: process.env.NODE_ENV });
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
