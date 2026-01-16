@@ -1,5 +1,4 @@
-// @ts-ignore
-import { app } from "../dist/index.cjs";
+import { app } from "./bundle.cjs";
 
 // Vercel Serverless Function Config
 export const config = {
@@ -8,4 +7,5 @@ export const config = {
     },
 };
 
+// Vercel handles default exports of Express instances
 export default app;

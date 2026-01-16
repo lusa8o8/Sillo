@@ -1,6 +1,6 @@
 import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
-import { rm, readFile } from "fs/promises";
+import { rm, readFile, copyFile, mkdir } from "fs/promises";
 
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
@@ -59,6 +59,12 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  // Copy the bundled server to api directory for Vercel
+  console.log("copying server bundle to api directory...");
+  await mkdir("api", { recursive: true });
+  await copyFile("dist/index.cjs", "api/bundle.cjs");
+  console.log("build complete!");
 }
 
 buildAll().catch((err) => {
