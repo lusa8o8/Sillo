@@ -19,6 +19,14 @@ export function serveStatic(app: Express) {
       - ${path.resolve(baseDir, "..", "dist", "public")}
     `);
 
+    // Add real-time list of current directory to help debugging
+    try {
+      console.log("Current directory files:", fs.readdirSync(process.cwd()));
+      if (fs.existsSync(path.resolve(process.cwd(), "dist"))) {
+        console.log("Dist directory files:", fs.readdirSync(path.resolve(process.cwd(), "dist")));
+      }
+    } catch (e) { }
+
     // Check if we have a local fallback in the api directory
     const fallbackPath = path.resolve(__dirname, "root.html");
     if (fs.existsSync(fallbackPath)) {

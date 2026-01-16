@@ -65,6 +65,38 @@ app.use((req, res, next) => {
   next();
 });
 
+// Debug routes for Vercel troubleshooting
+app.get("/api/debug/env", (_req, res) => {
+  res.json({
+    NODE_ENV: process.env.NODE_ENV,
+    cwd: process.cwd(),
+    dirname: __dirname,
+    env_keys: Object.keys(process.env).filter(k => !k.toLowerCase().includes("key") && !k.toLowerCase().includes("secret") && !k.toLowerCase().includes("token") && !k.toLowerCase().includes("url"))
+  });
+});
+
+app.get("/api/debug/files", async (_req, res) => {
+  const { readdirSync, existsSync } = await import("fs");
+  const { join } = await import("path");
+
+  const getFiles = (dir: string) => {
+    try {
+      if (!existsSync(dir)) return [`${dir} does not exist`];
+      return readdirSync(dir, { withFileTypes: true }).map(f => `${f.isDirectory() ? "[D]" : "[F]"} ${f.name}`);
+    } catch (e: any) {
+      return [`Error reading ${dir}: ${e.message}`];
+    }
+  };
+
+  res.json({
+    root: getFiles(process.cwd()),
+    dist: getFiles(join(process.cwd(), "dist")),
+    dist_public: getFiles(join(process.cwd(), "dist", "public")),
+    api: getFiles(join(process.cwd(), "api")),
+    var_task: getFiles("/var/task")
+  });
+});
+
 // Register routes and static files synchronously for production
 // This ensures they are ready when Vercel's serverless function handler is called
 if (process.env.NODE_ENV === "production") {
