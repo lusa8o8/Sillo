@@ -1,7 +1,6 @@
 {
     "version": 2,
     "buildCommand": "npm run build",
-    "complexity": 3,
     "functions": {
         "api/index.ts": {
             "includeFiles": "dist/public/**"
