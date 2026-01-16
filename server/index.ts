@@ -65,91 +65,40 @@ app.use((req, res, next) => {
   next();
 });
 
+// ALWAYS register routes first
+registerRoutes(httpServer, app);
+
+// ALWAYS register static files
+serveStatic(app);
+
 // Debug routes for Vercel troubleshooting
-app.get("/api/debug/env", (_req, res) => {
-  res.json({
-    NODE_ENV: process.env.NODE_ENV,
-    cwd: process.cwd(),
-    dirname: __dirname,
-    env_keys: Object.keys(process.env).filter(k => !k.toLowerCase().includes("key") && !k.toLowerCase().includes("secret") && !k.toLowerCase().includes("token") && !k.toLowerCase().includes("url"))
-  });
+app.get("/api/debug/health", (_req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-app.get("/api/debug/files", async (_req, res) => {
-  const { readdirSync, existsSync } = await import("fs");
-  const { join } = await import("path");
+// Production error handler
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  console.error("Server Error:", err);
+  res.status(status).json({ message });
+});
 
-  const getFiles = (dir: string) => {
+// Dev only async block
+if (process.env.NODE_ENV !== "production") {
+  (async () => {
     try {
-      if (!existsSync(dir)) return [`${dir} does not exist`];
-      return readdirSync(dir, { withFileTypes: true }).map(f => `${f.isDirectory() ? "[D]" : "[F]"} ${f.name}`);
-    } catch (e: any) {
-      return [`Error reading ${dir}: ${e.message}`];
-    }
-  };
-
-  res.json({
-    root: getFiles(process.cwd()),
-    dist: getFiles(join(process.cwd(), "dist")),
-    dist_public: getFiles(join(process.cwd(), "dist", "public")),
-    api: getFiles(join(process.cwd(), "api")),
-    var_task: getFiles("/var/task")
-  });
-});
-
-// Register routes and static files synchronously for production
-// This ensures they are ready when Vercel's serverless function handler is called
-if (process.env.NODE_ENV === "production") {
-  registerRoutes(httpServer, app);
-  serveStatic(app);
-}
-
-(async () => {
-  try {
-    if (process.env.NODE_ENV !== "production") {
-      // Register routes first in dev
-      registerRoutes(httpServer, app);
-
       const { setupVite } = await import("./vite");
       await setupVite(httpServer, app);
-    }
 
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-
-      if (status >= 500) {
-        console.error("Server Error:", err);
-      }
-
-      res.status(status).json({ message });
-    });
-
-    // Only start listening if strict mode (dev) or if running as standalone server
-    if (process.env.NODE_ENV !== "production" || require.main === module) {
       const port = parseInt(process.env.PORT || "5005", 10);
-
-      httpServer.on('error', (e: any) => {
-        if (e.code === 'EADDRINUSE') {
-          console.error(`Port ${port} is already in use. Please kill the process using it.`);
-        } else {
-          console.error('Server error:', e);
-        }
-        process.exit(1);
+      httpServer.listen(port, "localhost", () => {
+        log(`dev server serving on port ${port}`);
       });
-
-      httpServer.listen(
-        {
-          port,
-          host: "localhost",
-        },
-        () => {
-          log(`serving on port ${port}`);
-        },
-      );
+    } catch (err) {
+      console.error("Dev server init error:", err);
     }
-  } catch (err) {
-    console.error("Critical server initialization error:", err);
-    process.exit(1);
-  }
-})();
+  })();
+}
+
+export default app;
