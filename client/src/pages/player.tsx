@@ -373,7 +373,7 @@ export default function Player() {
           <div className={cn(
             "flex gap-6 transition-all duration-500 ease-in-out relative",
             isFullscreen ? "fixed inset-0 z-50 bg-black p-0 m-0" : "w-full",
-            playerMode === 'theater' && !isFullscreen ? "flex-col" : "flex-row pr-[424px]"
+            playerMode === 'theater' && !isFullscreen ? "flex-col" : "flex-col lg:flex-row lg:pr-[424px]"
           )}>
 
             {/* VIDEO AREA */}
@@ -381,7 +381,7 @@ export default function Player() {
               ref={containerRef}
               className={cn(
                 "relative bg-black transition-all duration-500 border border-border/50",
-                isFullscreen ? "w-full h-full border-0" : "flex-1 rounded-2xl overflow-hidden aspect-video shadow-2xl shadow-black/20",
+                isFullscreen ? "w-full h-full border-0" : "w-full lg:flex-1 rounded-2xl overflow-hidden aspect-video shadow-2xl shadow-black/20",
                 playerMode === 'theater' && !isFullscreen ? "w-full h-[75vh]" : ""
               )}>
               <div className="absolute inset-0 w-full h-full pointer-events-auto">
@@ -430,7 +430,7 @@ export default function Player() {
 
             {/* SIDEBAR INTELLIGENCE (Hidden in Fullscreen) */}
             {(!isFullscreen && playerMode !== 'theater') && (
-              <div className="w-[400px] flex-shrink-0 animate-in slide-in-from-right-4 duration-500 flex flex-col absolute right-0 top-0 bottom-0">
+              <div className="w-full lg:w-[400px] flex-shrink-0 animate-in slide-in-from-right-4 duration-500 flex flex-col h-[480px] lg:h-auto lg:absolute lg:right-0 lg:top-0 lg:bottom-0">
                 <IntelligencePanel videoTitle={videoTitle} context={buildAiContext()} className="h-full rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-lg shadow-black/5" />
               </div>
             )}
