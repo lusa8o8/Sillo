@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, BookOpen, MessageSquare, Loader2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { authedFetch } from "@/lib/api";
+import { aiFetch } from "@/lib/aiApi";
 
 interface IntelligencePanelProps {
     videoTitle: string;
@@ -40,11 +40,7 @@ export function IntelligencePanel({ videoTitle, context, className }: Intelligen
             setLoading(true);
             setSummaryError(null);
             try {
-                const res = await authedFetch(`/api/ai/summary`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: videoTitle, context: contextRef.current })
-                });
+                const res = await aiFetch('summary', { title: videoTitle, context: contextRef.current });
                 if (res.ok) {
                     const data = await res.json();
                     setSummaryData(data);
@@ -79,11 +75,7 @@ export function IntelligencePanel({ videoTitle, context, className }: Intelligen
         setChatLoading(true);
 
         try {
-            const res = await authedFetch(`/api/ai/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg, title: videoTitle, context })
-            });
+            const res = await aiFetch('chat', { message: userMsg, title: videoTitle, context });
 
             if (res.ok) {
                 const data = await res.json();

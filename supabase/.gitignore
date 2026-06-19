@@ -1,0 +1,7 @@
+# Supabase CLI local state
+.branches/
+.temp/
+
+# Function secrets (filled in manually / via dashboard)
+functions/.env.deploy
+.env

@@ -2,29 +2,18 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { apiResponse, apiError } from "./utils";
-import { guardAiRequest, AiGuardError } from "./services/aiGuard";
 import { authMiddleware, getUserId } from "./auth";
-
-// Maps AiGuardError to its proper HTTP status. Returns true if handled.
-function handleAiError(res: Parameters<typeof apiError>[0], error: unknown): boolean {
-  if (error instanceof AiGuardError) {
-    apiError(res, error.message, error.statusCode, { code: error.code });
-    return true;
-  }
-  return false;
-}
 
 export function registerRoutes(
   httpServer: Server,
   app: Express
 ): Server {
   // All API surfaces below require an authenticated Firebase user.
-  // (Health/debug routes in index.ts stay open.)
+  // (Health/debug routes in index.ts stay open. AI now lives in a Supabase Edge Function.)
   app.use("/api/metadata", authMiddleware);
   app.use("/api/vaults", authMiddleware);
   app.use("/api/youtube", authMiddleware);
   app.use("/api/playlists", authMiddleware);
-  app.use("/api/ai", authMiddleware);
 
   // Metadata Fetcher
   app.post("/api/metadata", async (req, res) => {
@@ -200,56 +189,6 @@ export function registerRoutes(
     } catch (error) {
       console.error("Playlist items error:", error);
       apiError(res, "Failed to fetch playlist items");
-    }
-  });
-
-  // AI Routes
-  app.post("/api/ai/summary", async (req, res) => {
-    try {
-      const { title, context } = req.body;
-      guardAiRequest({ userId: getUserId(req), inputs: [title, context] });
-      const { generateSummary } = await import("./services/ai");
-      const summary = await generateSummary(title, context);
-      apiResponse(res, summary);
-    } catch (error) {
-      if (handleAiError(res, error)) return;
-      console.error("AI Summary error:", error);
-      apiError(res, "Failed to generate summary");
-    }
-  });
-
-  app.post("/api/ai/chat", async (req, res) => {
-    try {
-      const { message, context, title } = req.body;
-      if (typeof message !== "string" || !message.trim()) {
-        return apiError(res, "Message is required", 400);
-      }
-      guardAiRequest({ userId: getUserId(req), inputs: [message, context, title] });
-      const { generateChatResponse } = await import("./services/ai");
-      const response = await generateChatResponse(message, { title, context });
-      apiResponse(res, { message: response });
-    } catch (error) {
-      if (handleAiError(res, error)) return;
-      console.error("AI Chat error:", error);
-      apiError(res, "Failed to generate chat response");
-    }
-  });
-
-  app.post("/api/ai/lesson-plan", async (req, res) => {
-    try {
-      const { title, context } = req.body;
-      if (!title) {
-        return apiError(res, "Title is required", 400);
-      }
-      guardAiRequest({ userId: getUserId(req), inputs: [title, context] });
-
-      const { generateLessonPlan } = await import("./services/ai");
-      const lessonPlan = await generateLessonPlan(title, context);
-      apiResponse(res, lessonPlan);
-    } catch (error) {
-      if (handleAiError(res, error)) return;
-      console.error("AI Lesson Plan error:", error);
-      apiError(res, "Failed to generate lesson plan");
     }
   });
 

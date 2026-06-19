@@ -8,7 +8,7 @@ import { Note } from "@/lib/storage";
 import { useNotes } from "@/hooks/useNotes";
 import { usePlaylistItems } from "@/hooks/usePlaylistItems";
 import { IntelligencePanel } from "@/components/player/IntelligencePanel";
-import { authedFetch } from "@/lib/api";
+import { aiFetch } from "@/lib/aiApi";
 
 type PlayerMode = 'default' | 'theater';
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -305,13 +305,9 @@ export default function Player() {
     setLessonPlanError(null);
 
     try {
-      const response = await authedFetch("/api/ai/lesson-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: videoTitle,
-          context: buildAiContext(),
-        }),
+      const response = await aiFetch("lesson-plan", {
+        title: videoTitle,
+        context: buildAiContext(),
       });
 
       if (!response.ok) {

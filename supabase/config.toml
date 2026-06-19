@@ -1,0 +1,8 @@
+# Supabase project config. Link with:
+#   supabase link --project-ref hbxyuagsyscgybkqrqyz
+project_id = "sillo"
+
+[functions.ai]
+# We verify Firebase ID tokens ourselves inside the function, so the built-in
+# Supabase JWT gateway check is disabled.
+verify_jwt = false
