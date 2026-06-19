@@ -1,6 +1,7 @@
 {
     "version": 2,
     "buildCommand": "npm run build",
+    "outputDirectory": "dist/public",
     "functions": {
         "api/index.ts": {
             "includeFiles": "dist/public/**"
@@ -13,7 +14,7 @@
         },
         {
             "source": "/(.*)",
-            "destination": "/api"
+            "destination": "/index.html"
         }
     ]
 }
