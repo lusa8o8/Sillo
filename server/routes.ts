@@ -192,6 +192,26 @@ export function registerRoutes(
     }
   });
 
+  // TEMP diagnostic: checks DB connectivity without exposing the password.
+  // Returns the host:port in use and the raw error if the query fails.
+  app.get("/api/debug/db", async (_req, res) => {
+    const url = process.env.DATABASE_URL;
+    let host = "unset (falling back to localhost)";
+    try {
+      if (url) host = new URL(url).host;
+    } catch {
+      host = "DATABASE_URL is not a valid URL";
+    }
+    try {
+      const { db } = await import("./db");
+      const { sql } = await import("drizzle-orm");
+      await db.execute(sql`select 1`);
+      res.json({ ok: true, dbUrlSet: !!url, host });
+    } catch (error: any) {
+      res.json({ ok: false, dbUrlSet: !!url, host, error: error?.message || String(error) });
+    }
+  });
+
 
   return httpServer;
 }
