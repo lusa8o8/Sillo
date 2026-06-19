@@ -1,15 +1,15 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { VaultItem } from "@/lib/storage";
+import { authedFetch } from "@/lib/api";
 
 interface SilloContextType {
     vaults: VaultItem[];
     addVault: (url: string) => Promise<{ success: boolean; error?: string }>;
     deleteVault: (id: string) => Promise<boolean>;
-    deleteVault: (id: string) => Promise<boolean>;
     saveNote: (vaultId: string, text: string, timestamp: number) => Promise<void>;
-    updateNote: (vaultId: string, noteId: number, text: string) => void;
-    deleteNote: (vaultId: string, noteId: number) => void;
+    updateNote: (vaultId: string, noteId: string, text: string) => Promise<void>;
+    deleteNote: (vaultId: string, noteId: string) => Promise<void>;
 }
 
 const SilloContext = createContext<SilloContextType | undefined>(undefined);
@@ -18,7 +18,6 @@ export function SilloProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
 
     const STORAGE_MODE: string = 'api';
-    const API_BASE = import.meta.env.VITE_API_URL || '';
 
     // Fetch Vaults
     const { data: vaults = [] } = useQuery<VaultItem[]>({
@@ -27,7 +26,7 @@ export function SilloProvider({ children }: { children: ReactNode }) {
             if (STORAGE_MODE === 'local') {
                 return JSON.parse(localStorage.getItem('sillo-vaults') || '[]');
             }
-            const res = await fetch(`${API_BASE}/api/vaults`);
+            const res = await authedFetch(`/api/vaults`);
             if (!res.ok) throw new Error('Failed to fetch vaults');
             return res.json();
         }
@@ -54,7 +53,7 @@ export function SilloProvider({ children }: { children: ReactNode }) {
             }
 
             // 1. Fetch Metadata first
-            const metaRes = await fetch(`${API_BASE}/api/metadata`, {
+            const metaRes = await authedFetch(`/api/metadata`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url })
@@ -75,7 +74,7 @@ export function SilloProvider({ children }: { children: ReactNode }) {
                 thumbnail: meta.thumbnail || "https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&q=80",
             };
 
-            const res = await fetch(`${API_BASE}/api/vaults`, {
+            const res = await authedFetch(`/api/vaults`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newVault)
@@ -98,7 +97,7 @@ export function SilloProvider({ children }: { children: ReactNode }) {
                 return true;
             }
 
-            const res = await fetch(`${API_BASE}/api/vaults/${id}`, {
+            const res = await authedFetch(`/api/vaults/${id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error("Failed to delete vault");
@@ -157,7 +156,7 @@ export function SilloProvider({ children }: { children: ReactNode }) {
                     }
 
                     try {
-                        await fetch(`${API_BASE}/api/vaults/${videoId}/notes`, {
+                        await authedFetch(`/api/vaults/${videoId}/notes`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ text, timestamp: timestamp.toString() }),
@@ -168,13 +167,36 @@ export function SilloProvider({ children }: { children: ReactNode }) {
                     }
                 },
                 updateNote: async (videoId, noteId, text) => {
-                    // Note update endpoint not yet implemented on server, but can mock or add later
                     if (STORAGE_MODE === 'local') {
-                        // ... local update logic ...
+                        queryClient.invalidateQueries({ queryKey: ['notes', videoId] });
+                        return;
+                    }
+
+                    try {
+                        await authedFetch(`/api/vaults/${videoId}/notes/${noteId}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ text }),
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['notes', videoId] });
+                    } catch (e) {
+                        console.error("Failed to update note:", e);
                     }
                 },
                 deleteNote: async (videoId, noteId) => {
-                    // Note delete endpoint not yet implemented on server
+                    if (STORAGE_MODE === 'local') {
+                        queryClient.invalidateQueries({ queryKey: ['notes', videoId] });
+                        return;
+                    }
+
+                    try {
+                        await authedFetch(`/api/vaults/${videoId}/notes/${noteId}`, {
+                            method: "DELETE",
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['notes', videoId] });
+                    } catch (e) {
+                        console.error("Failed to delete note:", e);
+                    }
                 },
             }}
         >

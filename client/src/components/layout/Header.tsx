@@ -1,11 +1,23 @@
-import { Plus, User } from "lucide-react";
+import { Plus, LogOut } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   onAddClick?: () => void;
 }
 
 export function Header({ onAddClick }: HeaderProps) {
+  const { user, logout } = useAuth();
+  const initial = (user?.displayName || user?.email || "?").charAt(0).toUpperCase();
+
   return (
     <header className="flex items-center justify-between py-4 px-6 md:px-0 sticky top-0 z-50 bg-background/50 backdrop-blur-md border-b border-white/5 transition-all" data-testid="header">
       <Link href="/">
@@ -27,9 +39,31 @@ export function Header({ onAddClick }: HeaderProps) {
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">New Vault</span>
         </button>
-        <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground" aria-label="Profile">
-          <User className="w-5 h-5" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center overflow-hidden hover:border-primary/50 transition-colors text-sm font-semibold text-foreground/80"
+              aria-label="Profile"
+            >
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span>{initial}</span>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium truncate">{user?.displayName || "Signed in"}</span>
+              {user?.email && <span className="text-xs font-normal text-muted-foreground truncate">{user.email}</span>}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => logout()} className="cursor-pointer">
+              <LogOut className="w-4 h-4 mr-2" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

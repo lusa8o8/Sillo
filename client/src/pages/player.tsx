@@ -1,15 +1,126 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useRoute } from "wouter";
 import YouTube from "react-youtube";
-import { ChevronLeft, Maximize2, Volume2, SkipBack, Play, Pause, SkipForward, Clock, List, Trash2, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, Maximize2, Play, Pause, Clock, List, Loader2, Trash2, BookOpen, ChevronDown, ChevronUp, RefreshCw, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSillo } from "@/context/SilloContext";
 import { Note } from "@/lib/storage";
 import { useNotes } from "@/hooks/useNotes";
 import { usePlaylistItems } from "@/hooks/usePlaylistItems";
 import { IntelligencePanel } from "@/components/player/IntelligencePanel";
+import { authedFetch } from "@/lib/api";
 
 type PlayerMode = 'default' | 'theater';
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+type LessonPlan = {
+  title: string;
+  overview: string;
+  steps: {
+    title: string;
+    goal: string;
+    practice: string;
+    durationMinutes: number;
+  }[];
+  checkpoints: string[];
+};
+
+interface AutoSavingNoteProps {
+  note: Note;
+  formatVideoTime: (seconds: number) => string;
+  onJump: (timestamp: number) => void;
+  onUpdate: (noteId: string, text: string) => Promise<void>;
+  onDelete: (noteId: string) => void;
+}
+
+function AutoSavingNote({ note, formatVideoTime, onJump, onUpdate, onDelete }: AutoSavingNoteProps) {
+  const [draft, setDraft] = useState(note.text);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const lastSavedText = useRef(note.text);
+  const saveTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setDraft(note.text);
+    lastSavedText.current = note.text;
+    setSaveState("idle");
+  }, [note.id, note.text]);
+
+  const saveDraft = async (text: string) => {
+    if (text === lastSavedText.current) return;
+
+    setSaveState("saving");
+    try {
+      await onUpdate(note.id, text);
+      lastSavedText.current = text;
+      setSaveState("saved");
+    } catch (error) {
+      console.error("Autosave failed:", error);
+      setSaveState("error");
+    }
+  };
+
+  const scheduleSave = (text: string) => {
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => {
+      saveDraft(text);
+    }, 800);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    };
+  }, []);
+
+  const handleChange = (value: string) => {
+    setDraft(value);
+    setSaveState(value === lastSavedText.current ? "idle" : "saving");
+    scheduleSave(value);
+  };
+
+  const handleBlur = () => {
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveDraft(draft);
+  };
+
+  return (
+    <li className="flex items-start gap-4 group p-3 rounded-xl hover:bg-muted/50 transition-colors">
+      <button
+        onClick={() => onJump(note.timestamp)}
+        className="mt-2 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50 shrink-0 hover:scale-150 transition-transform cursor-pointer"
+        title="Jump to timestamp"
+      />
+      <div className="flex-1">
+        <div className="flex items-baseline justify-between mb-1.5">
+          <div className="flex items-center gap-3">
+            <span
+              className="text-xs font-mono font-medium text-primary cursor-pointer hover:underline underline-offset-2"
+              onClick={() => onJump(note.timestamp)}
+            >
+              {formatVideoTime(note.timestamp)}
+            </span>
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1 min-w-[54px]">
+              {saveState === "saving" && <><Loader2 className="w-3 h-3 animate-spin" /> Saving</>}
+              {saveState === "saved" && <><Check className="w-3 h-3 text-primary" /> Saved</>}
+              {saveState === "error" && <><AlertCircle className="w-3 h-3 text-destructive" /> Error</>}
+            </span>
+          </div>
+          <button onClick={() => onDelete(note.id)} className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md transition-all">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <textarea
+          value={draft}
+          onChange={(event) => handleChange(event.target.value)}
+          onBlur={handleBlur}
+          rows={Math.max(2, Math.min(8, draft.split("\n").length + 1))}
+          className="w-full resize-none bg-transparent text-foreground/90 text-sm leading-relaxed outline-none cursor-text whitespace-pre-wrap selection:bg-primary/20 placeholder:text-muted-foreground/40"
+          placeholder="Add an observation..."
+        />
+      </div>
+    </li>
+  );
+}
 
 export default function Player() {
   const [, params] = useRoute("/player/:id");
@@ -58,6 +169,9 @@ export default function Player() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playerMode, setPlayerMode] = useState<PlayerMode>('default');
   const [isPlaylistVisible, setIsPlaylistVisible] = useState(true);
+  const [lessonPlan, setLessonPlan] = useState<LessonPlan | null>(null);
+  const [lessonPlanLoading, setLessonPlanLoading] = useState(false);
+  const [lessonPlanError, setLessonPlanError] = useState<string | null>(null);
 
   const formatVideoTime = (seconds: number) => {
     if (!seconds) return "00:00";
@@ -144,12 +258,12 @@ export default function Player() {
     saveNote(currentVault.id, "New observation...", playedSeconds);
   };
 
-  const handleUpdateNote = (noteId: number, text: string) => {
+  const handleUpdateNote = async (noteId: string, text: string) => {
     if (!currentVault?.id) return;
-    updateNote(currentVault.id, noteId, text);
+    await updateNote(currentVault.id, noteId, text);
   };
 
-  const handleDeleteNote = (noteId: number) => {
+  const handleDeleteNote = (noteId: string) => {
     if (!currentVault?.id) return;
     deleteNote(currentVault.id, noteId);
   };
@@ -168,6 +282,61 @@ export default function Player() {
 
   const isPlaylist = videoId.startsWith("PL") || videoId.length > 15;
   const playlistItems = usePlaylistItems(isPlaylist ? videoId : undefined);
+
+  const buildAiContext = () => {
+    const noteContext = notes
+      .filter((note) => note.text.trim())
+      .slice(0, 12)
+      .map((note) => `- ${formatVideoTime(note.timestamp)}: ${note.text.trim()}`)
+      .join("\n");
+
+    return [
+      `Vault type: ${currentVault?.type || "video"}`,
+      currentVault?.url ? `Source URL: ${currentVault.url}` : "",
+      noteContext ? `Learner notes:\n${noteContext}` : "No learner notes yet.",
+      "Transcript: not available yet.",
+    ].filter(Boolean).join("\n");
+  };
+
+  const fetchLessonPlan = async () => {
+    if (!videoTitle) return;
+
+    setLessonPlanLoading(true);
+    setLessonPlanError(null);
+
+    try {
+      const response = await authedFetch("/api/ai/lesson-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: videoTitle,
+          context: buildAiContext(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate lesson plan");
+      }
+
+      const data = await response.json();
+      setLessonPlan(data);
+    } catch (error) {
+      console.error("Lesson plan generation failed:", error);
+      setLessonPlanError("Could not generate the lesson plan. Check the AI provider key and try again.");
+    } finally {
+      setLessonPlanLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentVault?.id) return;
+
+    const timeout = setTimeout(() => {
+      fetchLessonPlan();
+    }, 600);
+
+    return () => clearTimeout(timeout);
+  }, [currentVault?.id, videoTitle, notes.length]);
 
   const opts: any = {
     height: '100%',
@@ -266,7 +435,7 @@ export default function Player() {
             {/* SIDEBAR INTELLIGENCE (Hidden in Fullscreen) */}
             {(!isFullscreen && playerMode !== 'theater') && (
               <div className="w-[400px] flex-shrink-0 animate-in slide-in-from-right-4 duration-500 flex flex-col absolute right-0 top-0 bottom-0">
-                <IntelligencePanel videoTitle={videoTitle} className="h-full rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-lg shadow-black/5" />
+                <IntelligencePanel videoTitle={videoTitle} context={buildAiContext()} className="h-full rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-lg shadow-black/5" />
               </div>
             )}
           </div>
@@ -276,7 +445,7 @@ export default function Player() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="lg:col-span-2">
                 <div className="h-[500px] border border-border rounded-2xl bg-card/50 overflow-hidden shadow-sm">
-                  <IntelligencePanel videoTitle={videoTitle} />
+                  <IntelligencePanel videoTitle={videoTitle} context={buildAiContext()} />
                 </div>
               </div>
             </div>
@@ -301,34 +470,14 @@ export default function Player() {
                       </li>
                     )}
                     {notes.map((note) => (
-                      <li key={note.id} className="flex items-start gap-4 group p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                        <button
-                          onClick={() => jumpToNote(note.timestamp)}
-                          className="mt-2 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50 shrink-0 hover:scale-150 transition-transform cursor-pointer"
-                          title="Jump to timestamp"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-baseline justify-between mb-1.5">
-                            <span
-                              className="text-xs font-mono font-medium text-primary cursor-pointer hover:underline underline-offset-2"
-                              onClick={() => jumpToNote(note.timestamp)}
-                            >
-                              {formatVideoTime(note.timestamp)}
-                            </span>
-                            <button onClick={() => handleDeleteNote(note.id)} className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md transition-all">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <div
-                            className="text-foreground/90 text-sm leading-relaxed outline-none cursor-text whitespace-pre-wrap selection:bg-primary/20"
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            onBlur={(e) => handleUpdateNote(note.id, e.currentTarget.textContent || "")}
-                          >
-                            {note.text}
-                          </div>
-                        </div>
-                      </li>
+                      <AutoSavingNote
+                        key={note.id}
+                        note={note}
+                        formatVideoTime={formatVideoTime}
+                        onJump={jumpToNote}
+                        onUpdate={handleUpdateNote}
+                        onDelete={handleDeleteNote}
+                      />
                     ))}
                   </ul>
                   <button
@@ -341,13 +490,101 @@ export default function Player() {
               </div>
 
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold tracking-tight text-foreground">Lesson Plan</h2>
-                <div className="bg-muted/30 rounded-2xl p-8 border border-border border-dashed text-center text-muted-foreground text-sm h-[300px] flex flex-col items-center justify-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center opacity-50">
-                    <BookOpen className="w-6 h-6" />
-                  </div>
-                  <p>AI is generating a structured lesson plan...</p>
-                  <span className="text-xs px-2 py-1 bg-muted rounded text-muted-foreground/70">Waitlist Active</span>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">Lesson Plan</h2>
+                  <button
+                    onClick={fetchLessonPlan}
+                    disabled={lessonPlanLoading}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                    title="Refresh lesson plan"
+                  >
+                    <RefreshCw className={cn("w-4 h-4", lessonPlanLoading && "animate-spin")} />
+                  </button>
+                </div>
+                <div className="bg-card rounded-2xl p-6 border border-border text-sm min-h-[300px] flex flex-col gap-5 shadow-sm">
+                  {lessonPlanLoading && !lessonPlan ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center text-muted-foreground">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                      </div>
+                      <p>Generating a structured lesson plan...</p>
+                    </div>
+                  ) : lessonPlanError && !lessonPlan ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center text-muted-foreground">
+                      <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                        <AlertCircle className="w-6 h-6 text-destructive" />
+                      </div>
+                      <p>{lessonPlanError}</p>
+                      <button
+                        onClick={fetchLessonPlan}
+                        className="text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded-lg transition-colors"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  ) : lessonPlan ? (
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-primary">
+                          <BookOpen className="w-4 h-4" />
+                          <h3 className="font-semibold text-foreground leading-snug">{lessonPlan.title}</h3>
+                        </div>
+                        <p className="text-muted-foreground leading-relaxed">{lessonPlan.overview}</p>
+                      </div>
+
+                      <ol className="space-y-4">
+                        {lessonPlan.steps.map((step, index) => (
+                          <li key={`${step.title}-${index}`} className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <h4 className="font-semibold text-foreground leading-snug">
+                                {index + 1}. {step.title}
+                              </h4>
+                              <span className="shrink-0 text-[11px] font-mono text-muted-foreground bg-background border border-border rounded px-2 py-1">
+                                {step.durationMinutes}m
+                              </span>
+                            </div>
+                            <p className="text-muted-foreground leading-relaxed">
+                              <span className="text-foreground/80">Goal:</span> {step.goal}
+                            </p>
+                            <p className="text-muted-foreground leading-relaxed">
+                              <span className="text-foreground/80">Practice:</span> {step.practice}
+                            </p>
+                          </li>
+                        ))}
+                      </ol>
+
+                      {lessonPlan.checkpoints.length > 0 && (
+                        <div className="space-y-3 pt-1">
+                          <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                            <Target className="w-3.5 h-3.5" />
+                            Checkpoints
+                          </h4>
+                          <ul className="space-y-2">
+                            {lessonPlan.checkpoints.map((checkpoint, index) => (
+                              <li key={`${checkpoint}-${index}`} className="flex gap-3 text-muted-foreground leading-relaxed">
+                                <Check className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                                <span>{checkpoint}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {lessonPlanLoading && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Refreshing plan...
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center text-muted-foreground">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center opacity-60">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      <p>No lesson plan yet.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

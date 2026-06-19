@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Plus, Search, Terminal, Activity, Zap, X, Filter, PlaySquare, Film, ListVideo, Trash2, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Header } from "@/components/layout/Header";
 import { useSillo } from "@/context/SilloContext";
 import { getYouTubeId, getYouTubeThumbnail } from "@/lib/youtube";
+import { authedFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
@@ -22,13 +23,22 @@ export default function Dashboard() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "video" | "playlist">("all");
   const [isSearching, setIsSearching] = useState(false);
+  const searchTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = searchTextareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 144)}px`;
+  }, [searchQuery]);
 
   // -- Search Query --
   const { data: searchResults = [], isLoading: isSearchLoading } = useQuery({
     queryKey: ["youtube-search", debouncedQuery, filterType],
     queryFn: async () => {
       if (!debouncedQuery) return [];
-      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(debouncedQuery)}&type=${filterType}`);
+      const res = await authedFetch(`/api/youtube/search?q=${encodeURIComponent(debouncedQuery)}&type=${filterType}`);
       if (!res.ok) throw new Error("Search failed");
       return res.json();
     },
@@ -55,8 +65,9 @@ export default function Dashboard() {
     }
   };
 
-  const handleSearchSubmit = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       setDebouncedQuery(searchQuery);
       setIsSearching(true);
     }
@@ -315,17 +326,19 @@ export default function Dashboard() {
         <section className={cn("pt-12 pb-24 flex justify-center px-6 transition-all duration-500", isSearching ? "fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-xl z-50 pb-8 pt-6 border-t border-border" : "")}>
           <div className="w-full max-w-2xl relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity blur-3xl pointer-events-none" />
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
-            <Input
+            <Search className="absolute left-6 top-8 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
+            <textarea
+              ref={searchTextareaRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleSearchSubmit}
-              className="border-0 bg-secondary/50 backdrop-blur-md text-lg h-16 px-14 placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:ring-offset-0 font-medium rounded-2xl shadow-xl shadow-black/5 transition-all duration-300 group-hover:bg-secondary/70"
+              rows={1}
+              className="w-full min-h-16 max-h-36 resize-none overflow-y-auto border-0 bg-secondary/50 backdrop-blur-md text-lg px-14 py-5 pr-40 placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:ring-offset-0 font-medium rounded-2xl shadow-xl shadow-black/5 transition-all duration-300 group-hover:bg-secondary/70 outline-none leading-6"
               placeholder="Search for architecture, deep dives, or sequences..."
             />
             {/* Enter Hint */}
             {(searchQuery && !isSearching) && (
-              <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none animate-in fade-in duration-300">
+              <div className="absolute right-6 top-8 flex items-center gap-2 pointer-events-none animate-in fade-in duration-300">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Press Enter</span>
                 <div className="w-5 h-5 flex items-center justify-center rounded border border-border bg-background/50 text-xs text-muted-foreground">↵</div>
               </div>

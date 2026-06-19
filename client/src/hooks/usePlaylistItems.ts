@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { authedFetch } from "@/lib/api";
 
 interface PlaylistItem {
     id: string;
@@ -9,14 +10,12 @@ interface PlaylistItem {
     publishedAt: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
-
 export function usePlaylistItems(playlistId: string | undefined): PlaylistItem[] {
     const { data: items = [] } = useQuery({
         queryKey: ['playlist', playlistId],
         queryFn: async () => {
             if (!playlistId) return [];
-            const res = await fetch(`${API_BASE}/api/playlists/${playlistId}/items`);
+            const res = await authedFetch(`/api/playlists/${playlistId}/items`);
             if (!res.ok) return [];
             return res.json();
         },

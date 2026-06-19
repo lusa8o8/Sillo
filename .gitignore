@@ -17,6 +17,7 @@ functions/.env
 functions/.env.*
 
 # Logs and Teamp files
+dev-*.log
 server_*.log
 server_*.txt
 test_*.ts

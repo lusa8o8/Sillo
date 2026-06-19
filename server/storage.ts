@@ -1,6 +1,6 @@
 import { users, vaults, notes, type User, type InsertUser, type Vault, type InsertVault, type Note, type InsertNote } from "../shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -11,13 +11,16 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   // Vaults
-  getVaults(): Promise<Vault[]>;
+  getVaults(userId?: string): Promise<Vault[]>;
+  getVault(id: string): Promise<Vault | undefined>;
   createVault(vault: InsertVault): Promise<Vault>;
   deleteVault(id: string): Promise<void>;
 
-  // Notes
+  // Notes (vault-scoped to prevent cross-vault access)
   getNotes(vaultId: string): Promise<Note[]>;
   createNote(note: InsertNote): Promise<Note>;
+  updateNote(id: string, vaultId: string, text: string): Promise<Note | undefined>;
+  deleteNote(id: string, vaultId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -36,8 +39,17 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getVaults(): Promise<Vault[]> {
+  async getVaults(userId?: string): Promise<Vault[]> {
+    if (userId) {
+      return await db.select().from(vaults).where(eq(vaults.userId, userId));
+    }
+
     return await db.select().from(vaults);
+  }
+
+  async getVault(id: string): Promise<Vault | undefined> {
+    const [vault] = await db.select().from(vaults).where(eq(vaults.id, id));
+    return vault;
   }
 
   async createVault(insertVault: InsertVault): Promise<Vault> {
@@ -74,6 +86,19 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return note;
+  }
+
+  async updateNote(id: string, vaultId: string, text: string): Promise<Note | undefined> {
+    const [note] = await db
+      .update(notes)
+      .set({ text })
+      .where(and(eq(notes.id, id), eq(notes.vaultId, vaultId)))
+      .returning();
+    return note;
+  }
+
+  async deleteNote(id: string, vaultId: string): Promise<void> {
+    await db.delete(notes).where(and(eq(notes.id, id), eq(notes.vaultId, vaultId)));
   }
 }
 

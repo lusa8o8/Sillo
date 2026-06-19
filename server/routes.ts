@@ -2,11 +2,30 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { apiResponse, apiError } from "./utils";
+import { guardAiRequest, AiGuardError } from "./services/aiGuard";
+import { authMiddleware, getUserId } from "./auth";
+
+// Maps AiGuardError to its proper HTTP status. Returns true if handled.
+function handleAiError(res: Parameters<typeof apiError>[0], error: unknown): boolean {
+  if (error instanceof AiGuardError) {
+    apiError(res, error.message, error.statusCode, { code: error.code });
+    return true;
+  }
+  return false;
+}
 
 export function registerRoutes(
   httpServer: Server,
   app: Express
 ): Server {
+  // All API surfaces below require an authenticated Firebase user.
+  // (Health/debug routes in index.ts stay open.)
+  app.use("/api/metadata", authMiddleware);
+  app.use("/api/vaults", authMiddleware);
+  app.use("/api/youtube", authMiddleware);
+  app.use("/api/playlists", authMiddleware);
+  app.use("/api/ai", authMiddleware);
+
   // Metadata Fetcher
   app.post("/api/metadata", async (req, res) => {
     try {
@@ -50,9 +69,9 @@ export function registerRoutes(
   });
 
   // Vaults
-  app.get("/api/vaults", async (_req, res) => {
+  app.get("/api/vaults", async (req, res) => {
     try {
-      const vaults = await storage.getVaults();
+      const vaults = await storage.getVaults(getUserId(req));
       apiResponse(res, vaults);
     } catch (error) {
       console.error("Fetch vaults error:", error);
@@ -62,7 +81,7 @@ export function registerRoutes(
 
   app.post("/api/vaults", async (req, res) => {
     try {
-      const vaultData = { ...req.body, userId: "user-123" };
+      const vaultData = { ...req.body, userId: getUserId(req) };
       const vault = await storage.createVault(vaultData);
       apiResponse(res, vault, 201);
     } catch (error: any) {
@@ -73,6 +92,10 @@ export function registerRoutes(
 
   app.delete("/api/vaults/:id", async (req, res) => {
     try {
+      const vault = await storage.getVault(req.params.id);
+      if (!vault || vault.userId !== getUserId(req)) {
+        return apiError(res, "Vault not found", 404);
+      }
       await storage.deleteVault(req.params.id);
       apiResponse(res, { success: true });
     } catch (error) {
@@ -84,6 +107,10 @@ export function registerRoutes(
   // Notes
   app.get("/api/vaults/:id/notes", async (req, res) => {
     try {
+      const vault = await storage.getVault(req.params.id);
+      if (!vault || vault.userId !== getUserId(req)) {
+        return apiError(res, "Vault not found", 404);
+      }
       const notes = await storage.getNotes(req.params.id);
       apiResponse(res, notes);
     } catch (error) {
@@ -94,12 +121,54 @@ export function registerRoutes(
 
   app.post("/api/vaults/:id/notes", async (req, res) => {
     try {
+      const vault = await storage.getVault(req.params.id);
+      if (!vault || vault.userId !== getUserId(req)) {
+        return apiError(res, "Vault not found", 404);
+      }
       const noteData = { ...req.body, vaultId: req.params.id };
       const note = await storage.createNote(noteData);
       apiResponse(res, note, 201);
     } catch (error) {
       console.error("Create note error:", error);
       apiError(res, "Failed to create note");
+    }
+  });
+
+  app.patch("/api/vaults/:vaultId/notes/:noteId", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (typeof text !== "string") {
+        return apiError(res, "Note text is required", 400);
+      }
+
+      const vault = await storage.getVault(req.params.vaultId);
+      if (!vault || vault.userId !== getUserId(req)) {
+        return apiError(res, "Note not found", 404);
+      }
+
+      const note = await storage.updateNote(req.params.noteId, req.params.vaultId, text);
+      if (!note) {
+        return apiError(res, "Note not found", 404);
+      }
+
+      apiResponse(res, note);
+    } catch (error) {
+      console.error("Update note error:", error);
+      apiError(res, "Failed to update note");
+    }
+  });
+
+  app.delete("/api/vaults/:vaultId/notes/:noteId", async (req, res) => {
+    try {
+      const vault = await storage.getVault(req.params.vaultId);
+      if (!vault || vault.userId !== getUserId(req)) {
+        return apiError(res, "Note not found", 404);
+      }
+      await storage.deleteNote(req.params.noteId, req.params.vaultId);
+      apiResponse(res, { success: true });
+    } catch (error) {
+      console.error("Delete note error:", error);
+      apiError(res, "Failed to delete note");
     }
   });
 
@@ -138,10 +207,12 @@ export function registerRoutes(
   app.post("/api/ai/summary", async (req, res) => {
     try {
       const { title, context } = req.body;
+      guardAiRequest({ userId: getUserId(req), inputs: [title, context] });
       const { generateSummary } = await import("./services/ai");
       const summary = await generateSummary(title, context);
       apiResponse(res, summary);
     } catch (error) {
+      if (handleAiError(res, error)) return;
       console.error("AI Summary error:", error);
       apiError(res, "Failed to generate summary");
     }
@@ -149,13 +220,36 @@ export function registerRoutes(
 
   app.post("/api/ai/chat", async (req, res) => {
     try {
-      const { message, context } = req.body;
+      const { message, context, title } = req.body;
+      if (typeof message !== "string" || !message.trim()) {
+        return apiError(res, "Message is required", 400);
+      }
+      guardAiRequest({ userId: getUserId(req), inputs: [message, context, title] });
       const { generateChatResponse } = await import("./services/ai");
-      const response = await generateChatResponse(message, context);
+      const response = await generateChatResponse(message, { title, context });
       apiResponse(res, { message: response });
     } catch (error) {
+      if (handleAiError(res, error)) return;
       console.error("AI Chat error:", error);
       apiError(res, "Failed to generate chat response");
+    }
+  });
+
+  app.post("/api/ai/lesson-plan", async (req, res) => {
+    try {
+      const { title, context } = req.body;
+      if (!title) {
+        return apiError(res, "Title is required", 400);
+      }
+      guardAiRequest({ userId: getUserId(req), inputs: [title, context] });
+
+      const { generateLessonPlan } = await import("./services/ai");
+      const lessonPlan = await generateLessonPlan(title, context);
+      apiResponse(res, lessonPlan);
+    } catch (error) {
+      if (handleAiError(res, error)) return;
+      console.error("AI Lesson Plan error:", error);
+      apiError(res, "Failed to generate lesson plan");
     }
   });
 

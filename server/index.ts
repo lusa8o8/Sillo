@@ -71,23 +71,6 @@ app.use((req, res, next) => {
 // ALWAYS register routes first
 registerRoutes(httpServer, app);
 
-// ALWAYS register static files
-serveStatic(app);
-
-// Debug routes for Vercel troubleshooting
-app.get("/api/debug/health", (_req, res) => {
-  res.json({ status: "ok", time: new Date().toISOString() });
-});
-
-// Production error handler
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-  console.error("Server Error:", err);
-  res.status(status).json({ message });
-});
-
-// Dev only async block
 if (process.env.NODE_ENV !== "production") {
   (async () => {
     try {
@@ -102,6 +85,22 @@ if (process.env.NODE_ENV !== "production") {
       console.error("Dev server init error:", err);
     }
   })();
+} else {
+  // Production uses the built client from dist/public.
+  serveStatic(app);
 }
+
+// Debug routes for Vercel troubleshooting
+app.get("/api/debug/health", (_req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
+});
+
+// Production error handler
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  console.error("Server Error:", err);
+  res.status(status).json({ message });
+});
 
 export default app;

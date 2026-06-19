@@ -1,10 +1,11 @@
 // Types
 export interface Note {
-    id: number;
-    videoId: string;
+    id: string;
+    vaultId?: string;
+    videoId?: string;
     timestamp: number;
     text: string;
-    createdAt: number;
+    createdAt: number | string;
 }
 
 export interface VaultItem {
@@ -51,7 +52,7 @@ export const storage = {
         }
     },
 
-    updateNote: (videoId: string, noteId: number, newText: string) => {
+    updateNote: (videoId: string, noteId: string, newText: string) => {
         try {
             const allNotes = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTES) || '{}');
             const videoNotes: Note[] = allNotes[videoId] || [];
@@ -65,7 +66,7 @@ export const storage = {
         }
     },
 
-    deleteNote: (videoId: string, noteId: number) => {
+    deleteNote: (videoId: string, noteId: string) => {
         try {
             const allNotes = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTES) || '{}');
             const videoNotes: Note[] = allNotes[videoId] || [];
